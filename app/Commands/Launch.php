@@ -36,14 +36,37 @@ class Launch extends Command
         $appName = $this->ask("Choose an app name (leave blank to generate one)");
         if (!$appName) $appName = "--generate-name"; //not putting this as the default answer in $this->ask so '--generate-name' is not displayed in the prompt
 
-        $result = Process::run("flyctl apps create -o personal --machines $appName");
+//        $result = Process::run("flyctl apps create -o personal --machines $appName");
+//
+//        if ($result->failed())
+//        {
+//            $this->error($result->errorOutput());
+//            return Command::FAILURE;
+//        }
+//        $this->info($result->output());
 
-        if ($result->failed())
+
+        // 2. detect Node and PHP versions
+
+        $result = Process::run("node -v");
+        if (!preg_match('/v(\d+)./', $result->output(), $matches))
         {
-            $this->error($result->errorOutput());
+            $this->error('could not detect Node version');
             return Command::FAILURE;
         }
-        $this->info($result->output());
+
+        $node_version = $matches[1];
+        $this->line("Detected Node version: $node_version");
+
+        $result = Process::run("php -v");
+        if (!preg_match('/PHP (\d+.\d+)/', $result->output(), $matches))
+        {
+            $this->error('could not detect PHP version');
+            return Command::FAILURE;
+        }
+            $php_version = $matches[1];
+            $this->line("Detected PHP version: $php_version");
+
         return Command::SUCCESS;
     }
 
