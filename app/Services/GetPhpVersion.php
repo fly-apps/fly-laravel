@@ -27,15 +27,10 @@ class GetPhpVersion
         // Determine Version Extracted
         if( count($resultArr) > 1 )
         {
-            // Below 7.4 versions dont have container, use 7.4 instead
-            if( strpos($resultArr[1][0],'7')!==false )
+            if( version_compare( $resultArr[1], '7.4', '<') )
             {
-                $version = (float)$resultArr[1];
-                if( $version < 7.4 )
-                {
-                    $launch->line( "PHP version is below 7.4 that does not have compatible container, using PHP 7.4 instead." );
-                    return "7.4";
-                }
+                $launch->line( "PHP version is below 7.4 that does not have compatible container, using PHP 7.4 instead." );
+                return "7.4";
             }
 
             // Else use the version extracted
