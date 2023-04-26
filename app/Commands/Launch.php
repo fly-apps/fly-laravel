@@ -58,14 +58,8 @@ class Launch extends Command
         $node_version = $matches[1];
         $this->line("Detected Node version: $node_version");
 
-        $result = Process::run("php -v");
-        if (!preg_match('/PHP (\d+.\d+)/', $result->output(), $matches))
-        {
-            $this->error('could not detect PHP version');
-            return Command::FAILURE;
-        }
-            $php_version = $matches[1];
-            $this->line("Detected PHP version: $php_version");
+        // Determine and include in-line the PHP version
+        $php_version = (new \App\Services\GetPhpVersion)->get( $this );
 
         return Command::SUCCESS;
     }
