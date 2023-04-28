@@ -3,7 +3,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\View;
-use Log;
 
 class GenerateFlyToml
 {
