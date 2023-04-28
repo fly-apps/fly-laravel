@@ -4,6 +4,11 @@ namespace App\Services;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\View;
 
+/**
+ * NOTES:
+ * Added Laravel's view component to project. Followed tutorial here: https://laravel-zero.com/docs/view
+ * Created config/view.php, and added "resources" to directories in `box.json`
+ */
 class GenerateFlyToml
 {
     /**
