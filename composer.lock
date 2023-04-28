@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bf7c3f5f8a469e9a672f93c24a48628b",
+    "content-hash": "7d8f8d0df6494dbdd189108b32d448ff",
     "packages": [
         {
             "name": "brick/math",
@@ -1169,7 +1169,7 @@
         },
         {
             "name": "illuminate/view",
-            "version": "v10.8.0",
+            "version": "v10.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/illuminate/view.git",

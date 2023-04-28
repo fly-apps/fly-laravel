@@ -55,11 +55,14 @@ class Launch extends Command
             return Command::FAILURE;
         }
 
-        $node_version = $matches[1];
-        $this->line("Detected Node version: $node_version");
+        $nodeVersion = $matches[1];
+        $this->line("Detected Node version: $nodeVersion");
 
         // Determine and include in-line the PHP version
-        $php_version = (new \App\Services\GetPhpVersion)->get( $this );
+        $phpVersion = (new \App\Services\GetPhpVersion)->get( $this );
+
+        // 3. Generate fly.toml file
+        (new \App\Services\GenerateFlyToml( $appName, $nodeVersion, $phpVersion ))->get( $this );
 
         return Command::SUCCESS;
     }
