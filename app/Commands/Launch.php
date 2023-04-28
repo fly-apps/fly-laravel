@@ -62,7 +62,7 @@ class Launch extends Command
         $phpVersion = (new \App\Services\GetPhpVersion)->get( $this );
 
         // 3. Generate fly.toml file
-        (new \App\Services\GenerateFlyToml)->get( $this, $appName, $nodeVersion, $phpVersion );
+        (new \App\Services\GenerateFlyToml( $appName, $nodeVersion, $phpVersion ))->get( $this );
 
         return Command::SUCCESS;
     }

@@ -4,12 +4,13 @@
         "app",
         "bootstrap",
         "config",
-        "vendor"
+        "vendor",
+        "resources"
     ],
     "files": [
         "composer.json"
     ],
-    "exclude-composer-files": false,
+    "exclude-composer-files": false,,
     "compression": "GZ",
     "compactors": [
         "KevinGH\\Box\\Compactor\\Php",

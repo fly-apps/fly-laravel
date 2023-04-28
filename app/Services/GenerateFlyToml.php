@@ -2,30 +2,35 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\View;
+use Log;
 
 class GenerateFlyToml
 {
-    public $templatePath = 'storage/fly.template.toml';
+    /**
+     * Path references
+     */
     public $writeToPath  = './fly.toml';
-    
+    public $templatePath = 'fly-template';
+
+    /**
+     * Config variables
+     */
+    public function __construct(    
+        public string $appName,
+        public string $nodeVersion,
+        public string $phpVersion
+    ){}
+
+
     /**
      * Generate fly.toml file
      * Initially rely on hardcoded string to generate fly.toml file
      */
-    public function get( 
-        \App\Commands\Launch $launch, 
-        string $appName,
-        string $nodeVersion,
-        string $phpVersion
-    )
+    public function get( \App\Commands\Launch $launch )
     {     
         // Generate config   
         $flyToml = $this->fromTemplate();
-        $flyToml = preg_replace(
-            ['~app = ".*"~', '~NODE_VERSION = ".*"~', '~PHP_VERSION = ".*"~'],
-            ["app = \"$appName\"", "NODE_VERSION = \"$nodeVersion\"", "PHP_VERSION = \"$phpVersion\""],
-            $flyToml
-        );
         
         // Writo/Override to file
         file_put_contents( $this->writeToPath, $flyToml );
@@ -37,15 +42,23 @@ class GenerateFlyToml
      */
     public function fromTemplate(): string
     {
-        return file_get_contents( $this->templatePath );
+        return View::make(
+            $this->templatePath, 
+            [ 'appName'=>$this->appName, 'nodeVersion'=>$this->nodeVersion, 'phpVersion'=>$this->phpVersion ] 
+        )->render();
     }
 
     /**
      * Generate from fly.toml retrieved from Fly.io, located at $writeToPath
      */
-    public function fromFlyctl( string $appName ): string
+    public function fromFlyctl( ): string
     {
-        Process::run("flyctl config save -a $appName")->output();
-        return file_get_contents( $this->writeToPath );
+        Process::run("flyctl config save -a $this->appName")->output();
+        $flyToml = file_get_contents( $this->writeToPath );
+        return preg_replace(
+            ['~app = ".*"~', '~NODE_VERSION = ".*"~', '~PHP_VERSION = ".*"~'],
+            ["app = \"$this->appName\"", "NODE_VERSION = \"$this->nodeVersion\"", "PHP_VERSION = \"$this->phpVersion\""],
+            $flyToml
+        );
     }
 } 
