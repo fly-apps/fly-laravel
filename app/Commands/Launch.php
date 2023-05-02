@@ -2,6 +2,7 @@
 
 namespace App\Commands;
 
+use App\Providers\AppServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
@@ -36,14 +37,14 @@ class Launch extends Command
         $appName = $this->ask("Choose an app name (leave blank to generate one)");
         if (!$appName) $appName = "--generate-name"; //not putting this as the default answer in $this->ask so '--generate-name' is not displayed in the prompt
 
-//        $result = Process::run("flyctl apps create -o personal --machines $appName");
-//
-//        if ($result->failed())
-//        {
-//            $this->error($result->errorOutput());
-//            return Command::FAILURE;
-//        }
-//        $this->info($result->output());
+        $result = Process::run("flyctl apps create -o personal --machines $appName");
+
+        if ($result->failed())
+        {
+            $this->error($result->errorOutput());
+            return Command::FAILURE;
+        }
+        $this->info($result->output());
 
 
         // 2. detect Node and PHP versions
@@ -63,6 +64,21 @@ class Launch extends Command
 
         // 3. Generate fly.toml file
         (new \App\Services\GenerateFlyToml( $appName, $nodeVersion, $phpVersion ))->get( $this );
+
+        // 4. Create dockerfile
+            // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
+        if (file_exists('Dockerfile'))
+        {
+            $this->line("Existing Dockerfile found, using that instead of the default Dockerfile.");
+        }
+        else
+        {
+
+            copy('resources/templates/Dockerfile', 'Dockerfile');
+            $this->line("Dockerfile added.");
+        }
+
+        $this->info("App '$appName' is ready to go!" );
 
         return Command::SUCCESS;
     }
