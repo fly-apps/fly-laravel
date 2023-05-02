@@ -9,7 +9,7 @@ use LaravelZero\Framework\Commands\Command;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use function PHPUnit\Framework\throwException;
 
-class Launch extends Command
+class LaunchCommand extends Command
 {
     /**
      * The signature of the command.
@@ -23,7 +23,7 @@ class Launch extends Command
      *
      * @var string
      */
-    protected $description = 'Launch an application on Fly.io';
+    protected $description = 'LaunchCommand an application on Fly.io';
 
     /**
      * Execute the console command.

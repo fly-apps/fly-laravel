@@ -20,7 +20,7 @@ class GenerateFlyToml
     /**
      * Config variables
      */
-    public function __construct(    
+    public function __construct(
         public string $appName,
         public string $nodeVersion,
         public string $phpVersion
@@ -31,15 +31,15 @@ class GenerateFlyToml
      * Generate fly.toml file
      * Initially rely on hardcoded string to generate fly.toml file
      */
-    public function get( \App\Commands\Launch $launch )
-    {     
-        // Generate config   
+    public function get( \App\Commands\LaunchCommand $launch )
+    {
+        // Generate config
         $flyToml = $this->fromTemplate();
-        
+
         // Writo/Override to file
         file_put_contents( $this->writeToPath, $flyToml );
         $launch->line( 'Wrote config file fly.toml' );
-    } 
+    }
 
     /**
      * Generate from template file in $templatePath
@@ -47,8 +47,8 @@ class GenerateFlyToml
     public function fromTemplate(): string
     {
         return View::make(
-            $this->templatePath, 
-            [ 'appName'=>$this->appName, 'nodeVersion'=>$this->nodeVersion, 'phpVersion'=>$this->phpVersion ] 
+            $this->templatePath,
+            [ 'appName'=>$this->appName, 'nodeVersion'=>$this->nodeVersion, 'phpVersion'=>$this->phpVersion ]
         )->render();
     }
 
@@ -65,4 +65,4 @@ class GenerateFlyToml
             $flyToml
         );
     }
-} 
+}

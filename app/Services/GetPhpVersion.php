@@ -11,8 +11,8 @@ class GetPhpVersion
      * Second Case: Version is below 7.4; use version 7.4 || TESTCASE: $resultVersion = "7.3";
      * Third Case: Version received is okay; use version received || TESTCASE: $resultVersion = "7.6"; $resultVersion = "8.2";
      */
-    public function get( \App\Commands\Launch $launch ): string
-    {        
+    public function get( \App\Commands\LaunchCommand $launch ): string
+    {
         // Default Version
         $defaultVersion = "8.0";
 
@@ -36,5 +36,5 @@ class GetPhpVersion
         // Else use Default Version if unsuccessful with version extraction
         $launch->line( "Could not find PHP version, using PHP $defaultVersion which has the broadest compatibility" );
         return $defaultVersion;
-    } 
+    }
 }
