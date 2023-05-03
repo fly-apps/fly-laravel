@@ -62,6 +62,9 @@ class LaunchCommand extends Command
         // Determine and include in-line the PHP version
         $phpVersion = (new \App\Services\GetPhpVersion)->get( $this );
 
+        // DEBUG: show __DIR__ location
+        $this->info("DIR location: " . __DIR__);
+
         // 3. Generate fly.toml file
         (new \App\Services\GenerateFlyToml( $appName, $nodeVersion, $phpVersion ))->get( $this );
 
