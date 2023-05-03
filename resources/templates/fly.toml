@@ -11,7 +11,7 @@ processes = []
 
 [build]
 [build.args]
-NODE_VERSION = "$NODE_VERSION"
+NODE_VERSION = "$NODE_VERSION$"
 PHP_VERSION = "$PHP_VERSION$"
 
 [env]
