@@ -36,7 +36,7 @@ class GenerateFlyToml
         // Generate config
         $flyToml = $this->fromTemplate();
 
-        // Writo/Override to file
+        // Write/Override to file
         file_put_contents( $this->writeToPath, $flyToml );
         $launch->line( 'Wrote config file fly.toml' );
     }
@@ -46,10 +46,20 @@ class GenerateFlyToml
      */
     public function fromTemplate(): string
     {
-        return View::make(
-            $this->templatePath,
-            [ 'appName'=>$this->appName, 'nodeVersion'=>$this->nodeVersion, 'phpVersion'=>$this->phpVersion ]
-        )->render();
+//        return View::make(
+//            $this->templatePath,
+//            [ 'appName'=>$this->appName, 'nodeVersion'=>$this->nodeVersion, 'phpVersion'=>$this->phpVersion ]
+//        )->render();
+
+        $placeholderVariables = [ 'APP_NAME'=>$this->appName, 'NODE_VERSION'=>$this->nodeVersion, 'PHP_VERSION'=>$this->phpVersion ];
+
+        $flyToml = file_get_contents(__DIR__ . "/../../resources/templates/fly.toml");
+
+        foreach ($placeholderVariables as $search => $replace) {
+            $flyToml = str_replace('$'.$search.'$', $replace, $flyToml);
+        }
+
+        return $flyToml;
     }
 
     /**
