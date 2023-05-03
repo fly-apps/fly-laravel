@@ -29,6 +29,9 @@ class GetPhpVersion
             }
 
             // Else Use the Version Output
+                // $resultVersion has 3 digits, like this: 8.1.10 . We only need two so take only the first 2.
+            $resultArray = explode(".", $resultVersion);
+            $resultVersion = "$resultArray[0].$resultArray[1]";
             $launch->line( "Detected PHP version: $resultVersion" );
             return $resultVersion;
         }
