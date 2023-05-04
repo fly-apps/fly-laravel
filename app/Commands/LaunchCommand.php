@@ -65,8 +65,25 @@ class LaunchCommand extends Command
         // 3. Generate fly.toml file
         (new \App\Services\GenerateFlyToml( $appName, $nodeVersion, $phpVersion ))->get( $this );
 
-        // 4. Create dockerfile
-            // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
+        // 4. Copy over .fly folder, .dockerignore and DockerFile
+
+        $result = Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly");
+        if ($result->successful()) $this->line('Added folder .fly in project root');
+        else
+        {
+            $this->error($result->output());
+            return Command::FAILURE;
+        }
+
+        $result = Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore");
+        if ($result->successful()) $this->line('Added .dockerignore in project root');
+        else
+        {
+            $this->error($result->output());
+            return Command::FAILURE;
+        }
+
+        // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
         if (file_exists('Dockerfile'))
         {
             $this->line("Existing Dockerfile found, using that instead of the default Dockerfile.");
@@ -75,7 +92,7 @@ class LaunchCommand extends Command
         {
 
             copy(__DIR__ . '/../../resources/templates/Dockerfile', 'Dockerfile');
-            $this->line("Dockerfile added.");
+            $this->line("Added Dockerfile");
         }
 
         $this->info("App '$appName' is ready to go!" );
