@@ -46,7 +46,6 @@ class LaunchCommand extends Command
         }
         $this->info($result->output());
 
-
         // 2. detect Node and PHP versions
 
         $result = Process::run("node -v");
@@ -95,8 +94,18 @@ class LaunchCommand extends Command
             $this->line("Added Dockerfile");
         }
 
-        $this->info("App '$appName' is ready to go!" );
+        // 5 set the APP_KEY secret
+        $APP_KEY = "base64:" . base64_encode(random_bytes(32)); // generate random app key, and encrypt it
+        $result = Process::run("fly secrets set APP_KEY=$APP_KEY -a $appName --stage");
+        if ($result->successful()) $this->line('Set APP_KEY as secret.');
+        else
+        {
+            $this->error($result->output());
+            return Command::FAILURE;
+        }
 
+        //finalize
+        $this->info("App '$appName' is ready to go!" );
         return Command::SUCCESS;
     }
 
