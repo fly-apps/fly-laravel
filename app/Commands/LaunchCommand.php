@@ -23,7 +23,7 @@ class LaunchCommand extends Command
      *
      * @var string
      */
-    protected $description = 'LaunchCommand an application on Fly.io';
+    protected $description = 'Launch an application on Fly.io';
 
     /**
      * Execute the console command.
@@ -33,9 +33,18 @@ class LaunchCommand extends Command
     public function handle()
     {
         // 1. create a fly app, including asking the app name and setting a region
+        $currentDirectoryName = array_reverse(explode("/", getcwd()))[0];
+            //turn "ExampleApp" into "example-app"
+        strtolower(preg_replace("([A-Z])", "-$0", lcfirst($currentDirectoryName)));
 
-        $appName = $this->ask("Choose an app name (leave blank to generate one)");
+        $appName = $this->ask("Choose an app name (use '--generate-name' to generate one)", $currentDirectoryName);
         if (!$appName) $appName = "--generate-name"; //not putting this as the default answer in $this->ask so '--generate-name' is not displayed in the prompt
+
+        if (!preg_match("/^[a-z0-9-]+$/", $appName))
+        {
+            $this->error("App names are only allowed to contain lowercase, numbers and hyphens.");
+            return Command::FAILURE;
+        }
 
         $result = Process::run("flyctl apps create -o personal --machines $appName");
 
@@ -47,7 +56,6 @@ class LaunchCommand extends Command
         $this->info($result->output());
 
         // 2. detect Node and PHP versions
-
         $result = Process::run("node -v");
         if (!preg_match('/v(\d+)./', $result->output(), $matches))
         {
@@ -67,20 +75,20 @@ class LaunchCommand extends Command
         // 4. Copy over .fly folder, .dockerignore and DockerFile
 
         $result = Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly");
-        if ($result->successful()) $this->line('Added folder .fly in project root');
-        else
+        if ($result->failed())
         {
             $this->error($result->output());
             return Command::FAILURE;
         }
+        $this->line('Added folder .fly in project root');
 
         $result = Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore");
-        if ($result->successful()) $this->line('Added .dockerignore in project root');
-        else
+        if ($result->failed())
         {
             $this->error($result->output());
             return Command::FAILURE;
         }
+        $this->line('Added .dockerignore in project root');
 
         // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
         if (file_exists('Dockerfile'))
