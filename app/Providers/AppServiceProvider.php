@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Commands\DeployCommand;
 use App\Commands\LaunchCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 LaunchCommand::class,
+                DeployCommand::class
             ]);
         }
     }
