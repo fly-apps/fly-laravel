@@ -1,40 +1,16 @@
-<a href="https://supportukrainenow.org/"><img src="https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct.svg" width="100%"></a>
+# Fly-Laravel
 
-------
+Fly-Laravel was created by Fly.io and is a quick way to get a Laravel app running on Fly.io. It was built using [Laravel Zero](https://laravel-zero.com).
 
-<p align="center">
-    <img title="Laravel Zero" height="100" src="https://raw.githubusercontent.com/laravel-zero/docs/master/images/logo/laravel-zero-readme.png" />
-</p>
+## Usage
 
-<p align="center">
-  <a href="https://github.com/laravel-zero/framework/actions"><img src="https://github.com/laravel-zero/laravel-zero/actions/workflows/tests.yml/badge.svg" alt="Build Status"></img></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/dt/laravel-zero/framework.svg" alt="Total Downloads"></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/v/laravel-zero/framework.svg?label=stable" alt="Latest Stable Version"></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/l/laravel-zero/framework.svg" alt="License"></a>
-</p>
+Fly-Laravel assumes that you have flyctl installed, and that you have it connected to your [Fly.io](https://www.fly.io) account. If you need help with this, check out  https://fly.io/docs/speedrun/. 
 
-<h4> <center>This is a <bold>community project</bold> and not an official Laravel one </center></h4>
+To get an app running on Fly.io, run `./vendor/bin/fly-laravel launch`. This will create (among other things) a `fly.toml` file which holds the entire app configuration. For more info about fly.toml app configuration, check out [the docs](https://fly.io/docs/reference/configuration/).
 
-Laravel Zero was created by [Nuno Maduro](https://github.com/nunomaduro) and [Owen Voke](https://github.com/owenvoke), and is a micro-framework that provides an elegant starting point for your console application. It is an **unofficial** and customized version of Laravel optimized for building command-line applications.
-
-- Built on top of the [Laravel](https://laravel.com) components.
-- Optional installation of Laravel [Eloquent](https://laravel-zero.com/docs/database/), Laravel [Logging](https://laravel-zero.com/docs/logging/) and many others.
-- Supports interactive [menus](https://laravel-zero.com/docs/build-interactive-menus/) and [desktop notifications](https://laravel-zero.com/docs/send-desktop-notifications/) on Linux, Windows & MacOS.
-- Ships with a [Scheduler](https://laravel-zero.com/docs/task-scheduling/) and  a [Standalone Compiler](https://laravel-zero.com/docs/build-a-standalone-application/).
-- Integration with [Collision](https://github.com/nunomaduro/collision) - Beautiful error reporting
-
-------
-
-## Documentation
-
-For full documentation, visit [laravel-zero.com](https://laravel-zero.com/).
-
-## Support the development
-**Do you like this project? Support it by donating**
-
-- PayPal: [Donate](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=66BYDWAT92N6L)
-- Patreon: [Donate](https://www.patreon.com/nunomaduro)
+For ease of use, you could configure a shell alias, like this: `alias fly-laravel='php vendor/bin/fly-laravel'`.
+To make this available everywhere, you can add this to your shell configuration file in your home directory, like `~/.zshrc` or `~/.bashrc`. Don't forget to restart your shell after. 
 
 ## License
 
-Laravel Zero is an open-source software licensed under the MIT license.
+Fly-Laravel is an open-source software licensed under the MIT license.
