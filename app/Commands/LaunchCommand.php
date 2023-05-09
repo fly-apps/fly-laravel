@@ -33,11 +33,7 @@ class LaunchCommand extends Command
     {
         try {
             // 1. create a fly app, including asking the app name and setting a region
-            $currentDirectoryName = array_reverse(explode("/", getcwd()))[0];
-            //turn "ExampleApp" into "example-app"
-            strtolower(preg_replace("([A-Z])", "-$0", lcfirst($currentDirectoryName)));
-
-            $appName = $this->ask("Choose an app name (use '--generate-name' to generate one)", $currentDirectoryName);
+            $appName = $this->ask("Choose an app name (leave blank to generate one)");
             if (!$appName) $appName = "--generate-name"; //not putting this as the default answer in $this->ask so '--generate-name' is not displayed in the prompt
 
             if (!preg_match("/^[a-z0-9-]+$/", $appName))
@@ -47,8 +43,13 @@ class LaunchCommand extends Command
             }
 
             $result = Process::run("flyctl apps create -o personal --machines $appName")->throw();
-
             $this->info($result->output());
+
+            // In case app name is auto generated, extract app name from creation message
+            if( $appName == '--generate-name' ){
+                $appName = explode('New app created:', $result->output())[ 1 ];
+                $appName = str_replace(array("\r", "\n", ' '), '', $appName);
+            }
 
             // 2. detect Node and PHP versions
             $result = Process::run("node -v");
