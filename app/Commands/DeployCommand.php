@@ -32,13 +32,19 @@ class DeployCommand extends Command
     {
         try
         {
-            $result = Process::run("fly deploy")->throw();
+
+            $process = Process::start("fly deploy", function (string $type, string $output) {
+                $this->line($output);
+            });
+            $result = $process->wait()->throw();
+
             $this->line($result->output());
 
             //if --open is added, run 'fly open' before quitting.
             if ($this->option('open'))
             {
-                $this->info("TODO: open the fly.io app. ");
+                Process::run("fly open")->throw();
+                $this->info("opened app.");
             }
         }
         catch (ProcessFailedException $e)
