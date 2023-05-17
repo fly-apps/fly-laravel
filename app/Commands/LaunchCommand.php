@@ -133,7 +133,7 @@ class LaunchCommand extends Command
         if (sizeOf($organizationNames) == 1)
         {
             $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
-            return $organizationNames[0];
+            return $organizations[0]['slug'];
         }
 
         $organizationNames[] = "Cancel";
