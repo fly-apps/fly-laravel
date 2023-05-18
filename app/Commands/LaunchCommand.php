@@ -43,7 +43,7 @@ class LaunchCommand extends Command
                 } else return Command::SUCCESS;
             }
 
-            // 1. create a fly app, including asking the app name and setting a region
+            // 1. Create a fly app, including asking the app name and setting a region
             $appNameInput = $this->ask("Choose an app name (leave blank to generate one)"); //not putting --generate-name as the default answer to prevent it being displayed in the prompt
             $appName = '';
 
@@ -51,20 +51,27 @@ class LaunchCommand extends Command
                 $appName = $this->createApp($appNameInput);
                 return true;
             });
-
+            
             $nodeVersion = "";
             $phpVersion = "";
 
-            // 2. detect Node and PHP versions
+            // 2. Detect Node and PHP versions
             $this->task("Detect Node and PHP versions", function() use(&$nodeVersion, &$phpVersion) {
                 $nodeVersion = $this->detectNodeVersion();
                 $phpVersion = $this->detectPhpVersion();
                 return true;
             });
 
+            // 3. Ask user for processes to add 
+            $processes = [];
+            $this->task("Set additional process groups", function() use(&$processes) {
+                $processes = $this->setProcesses();
+                return true;
+            });
+
             // 3. Generate fly.toml file
-            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion) {
-                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, new TomlGenerator());
+            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
+                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
                 return true;
             });
 
@@ -167,7 +174,22 @@ class LaunchCommand extends Command
         return $resultVersion;
     }
 
-    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, TomlGenerator $generator)
+    private function setProcesses( array $processes=[] ): array
+    {
+        $cronCommand = "cron -f";
+        if( $this->confirm("Do you want to run Laravel's scheduler via cron? This will run \"$cronCommand\" in a separate process group." ) )
+            $processes['cron'] = $cronCommand;
+        
+        $workerCommand = "php artisan queue:work";
+        if( $this->confirm("Do you want to run queue workers? This will run \"$workerCommand\" on a separate process group.") )
+            $processes['worker'] = $workerCommand;
+        
+        if( $processes )
+            $processes = ['app'=>''] + $processes;
+        return $processes;
+    }
+
+    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, TomlGenerator $generator)
     {
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
@@ -175,6 +197,9 @@ class LaunchCommand extends Command
         $tomlArray['build']['args']['NODE_VERSION'] = $nodeVersion;
         $tomlArray['build']['args']['PHP_VERSION'] = $phpVersion;
 
+        if( $processes )
+            $tomlArray['processes'] = $processes;
+       
         $generator->generateToml($tomlArray, "fly.toml");
     }
 
