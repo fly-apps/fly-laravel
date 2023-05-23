@@ -52,42 +52,41 @@ class LaunchCommand extends Command
                 return true;
             });
             
+            // 2. Ask user for processes to add 
+            $processes = [];
+            $this->task("Set additional process groups", function() use(&$processes) {
+                $processes = $this->setProcesses();
+                return true;
+            });
+            
+            // 3. Detect Node and PHP versions
             $nodeVersion = "";
             $phpVersion = "";
 
-            // 2. Detect Node and PHP versions
             $this->task("Detect Node and PHP versions", function() use(&$nodeVersion, &$phpVersion) {
                 $nodeVersion = $this->detectNodeVersion();
                 $phpVersion = $this->detectPhpVersion();
                 return true;
             });
 
-            // 3. Ask user for processes to add 
-            $processes = [];
-            $this->task("Set additional process groups", function() use(&$processes) {
-                $processes = $this->setProcesses();
-                return true;
-            });
-
-            // 3. Generate fly.toml file
+            // 4. Generate fly.toml file
             $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
                 $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
                 return true;
             });
 
-            // 4. Copy over .fly folder, .dockerignore and DockerFile
+            // 5. Copy over .fly folder, .dockerignore and DockerFile
             $this->task("Copy over .fly directory, Dockerfile and .dockerignore", function(){
                 $this->copyFiles();
                 return true;
             });
 
-
-            // 5. set the APP_KEY secret
+            // 6. Set the APP_KEY secret
             $this->task("set APP_KEY secret", function() use($appName) {
                 $this->setAppKeySecret($appName);
             });
 
-            // 6. ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
+            // 7. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
             if ($this->confirm("Do you want to deploy your app?")) {
                 $this->call(DeployCommand::class);
             }
@@ -176,16 +175,37 @@ class LaunchCommand extends Command
 
     private function setProcesses( array $processes=[] ): array
     {
-        $cronCommand = "cron -f";
-        if( $this->confirm("Do you want to run Laravel's scheduler via cron? This will run \"$cronCommand\" in a separate process group." ) )
-            $processes['cron'] = $cronCommand;
-        
-        $workerCommand = "php artisan queue:work";
-        if( $this->confirm("Do you want to run queue workers? This will run \"$workerCommand\" on a separate process group.") )
-            $processes['worker'] = $workerCommand;
-        
-        if( $processes )
-            $processes = ['app'=>''] + $processes;
+        // Command List
+        $none = 'none';
+        $commands = [
+            'cron'   => ['Scheduler    ', 'cron -f'],
+            'worker' => ['Queue Workers', 'php artisan queue:listen'],    
+            $none    => ['None'],        
+        ];
+
+        // Set choices to choose from based on Command List
+        $selections = $this->choice(
+            "Select additional processes to run ( Comma separate keys or Leave blank to run none )",
+            (function($choices=[]) use($commands, $none){
+                foreach($commands as $key=>$command)
+                    $choices[$key] = $key==$none? $command[0]: "$command[0] - This will run '$command[1]' in a separate process group";
+                return $choices;
+            })(),
+            $none, null, true
+        );
+
+        // Set processes to run based on selections
+        foreach( $selections as $selection ){
+            if( $selection == $none ){
+                $this->line( "Additional processes to run: ".$commands[$none][0] );
+                return [];
+            }else
+                $processes[$selection] = $commands[$selection][1];
+        }
+
+        // Inform user of selected processes
+        $this->line( "Additional processes to run: ".implode(", ", array_keys($processes)) );
+        $processes = ['app'=>''] + $processes;
         return $processes;
     }
 
