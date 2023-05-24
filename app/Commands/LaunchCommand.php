@@ -5,6 +5,7 @@ namespace App\Commands;
 use App\Services\TomlGenerator;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 use Yosymfony\Toml\Toml;
@@ -43,12 +44,15 @@ class LaunchCommand extends Command
                 } else return Command::SUCCESS;
             }
 
-            // 1. Create a fly app, including asking the app name and setting a region
+            // 1. Create a fly app, including asking the app name and the organization to deploy the app in
             $appNameInput = $this->ask("Choose an app name (leave blank to generate one)"); //not putting --generate-name as the default answer to prevent it being displayed in the prompt
             $appName = '';
 
-            $this->task("Create app on Fly.io", function() use($appNameInput, &$appName) {
-                $appName = $this->createApp($appNameInput);
+            $organizationName = $this->getOrganizationName();
+            if ($organizationName == "") return Command::SUCCESS;
+
+            $this->task("Create app on Fly.io", function() use($appNameInput, $organizationName, &$appName) {
+                $appName = $this->createApp($appNameInput, $organizationName);
                 return true;
             });
             
@@ -113,7 +117,43 @@ class LaunchCommand extends Command
         // $schedule->command(static::class)->everyMinute();
     }
 
-    private function createApp($appName): string
+    private function getOrganizationName() : string
+    {
+        $organizations = [];
+        $this->task("Retrieving your organizations on Fly.io", function() use (&$organizations) {
+            $response = Http::withToken($this->getAuthToken())
+                ->acceptJson()
+                ->contentType("application/json")
+                ->post('https://api.fly.io/graphql', ["query" => "query {currentUser {email} organizations {nodes{id slug name type viewerRole}}}"]);
+
+            // organizations will be an array of arrays that look like this: array("id" => , "slug" => , "name" => , "type" => , "viewerRole" => )
+            $organizations = $response->collect("data.organizations.nodes")->toArray();
+
+            return $response->successful();
+        });
+
+        $organizationNames = [];
+        foreach($organizations as $organization)
+        {
+            $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
+        }
+        if (sizeOf($organizationNames) == 1)
+        {
+            $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
+            return $organizations[0]['slug'];
+        }
+
+        $organizationNames[] = "Cancel";
+
+        $choice = $this->choice("Select the organization where you want to deploy the app", $organizationNames);
+        $index = array_search($choice, $organizationNames);
+
+        if ($choice == "Cancel") return "";
+
+        return $organizations[$index]["slug"];
+    }
+
+    private function createApp($appName, $organizationName): string
     {
         if (!$appName) $appName = "--generate-name"; //not putting this as the default answer in $this->ask so '--generate-name' is not displayed in the prompt
 
@@ -122,7 +162,7 @@ class LaunchCommand extends Command
             throw new ProcessFailedException(Process::result("", "App names are only allowed to contain lowercase, numbers and hyphens.", -1));
         }
 
-        $result = Process::run("flyctl apps create -o personal --machines $appName")->throw();
+        $result = Process::run("flyctl apps create -o $organizationName --machines $appName")->throw();
 
         // In case app name is auto generated, extract app name from creation message
         if( $appName == '--generate-name' ){
@@ -244,5 +284,11 @@ class LaunchCommand extends Command
     {
         $APP_KEY = "base64:" . base64_encode(random_bytes(32)); // generate random app key, and encrypt it
         Process::run("fly secrets set APP_KEY=$APP_KEY -a $appName --stage")->throw();
+    }
+
+    private function getAuthToken() : string
+    {
+        $result = Process::run("fly auth token")->throw();
+        return $result->output();
     }
 }
