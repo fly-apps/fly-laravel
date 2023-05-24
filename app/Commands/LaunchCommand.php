@@ -44,7 +44,7 @@ class LaunchCommand extends Command
                 } else return Command::SUCCESS;
             }
 
-            // 1. create a fly app, including asking the app name and the organization to deploy the app in
+            // 1. Create a fly app, including asking the app name and the organization to deploy the app in
             $appNameInput = $this->ask("Choose an app name (leave blank to generate one)"); //not putting --generate-name as the default answer to prevent it being displayed in the prompt
             $appName = '';
 
@@ -55,35 +55,42 @@ class LaunchCommand extends Command
                 $appName = $this->createApp($appNameInput, $organizationName);
                 return true;
             });
-
+            
+            // 2. Ask user for processes to add 
+            $processes = [];
+            $this->task("Set additional process groups", function() use(&$processes) {
+                $processes = $this->setProcesses();
+                return true;
+            });
+            
+            // 3. Detect Node and PHP versions
             $nodeVersion = "";
             $phpVersion = "";
 
-            // 2. detect Node and PHP versions
             $this->task("Detect Node and PHP versions", function() use(&$nodeVersion, &$phpVersion) {
                 $nodeVersion = $this->detectNodeVersion();
                 $phpVersion = $this->detectPhpVersion();
                 return true;
             });
 
-            // 3. Generate fly.toml file
-            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion) {
-                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, new TomlGenerator());
+            // 4. Generate fly.toml file
+            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
+                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
                 return true;
             });
 
-            // 4. Copy over .fly folder, .dockerignore and DockerFile
+            // 5. Copy over .fly folder, .dockerignore and DockerFile
             $this->task("Copy over .fly directory, Dockerfile and .dockerignore", function(){
                 $this->copyFiles();
                 return true;
             });
 
-            // 5. set the APP_KEY secret
+            // 6. Set the APP_KEY secret
             $this->task("set APP_KEY secret", function() use($appName) {
                 $this->setAppKeySecret($appName);
             });
 
-            // 6. ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
+            // 7. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
             if ($this->confirm("Do you want to deploy your app?")) {
                 $this->call(DeployCommand::class);
             }
@@ -206,7 +213,43 @@ class LaunchCommand extends Command
         return $resultVersion;
     }
 
-    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, TomlGenerator $generator)
+    private function setProcesses( array $processes=[] ): array
+    {
+        // Command List
+        $none = 'none';
+        $commands = [
+            'cron'   => ['Scheduler    ', 'cron -f'],
+            'worker' => ['Queue Workers', 'php artisan queue:listen'],    
+            $none    => ['None'],        
+        ];
+
+        // Set choices to choose from based on Command List
+        $selections = $this->choice(
+            "Select additional processes to run ( Comma separate keys or Leave blank to run none )",
+            (function($choices=[]) use($commands, $none){
+                foreach($commands as $key=>$command)
+                    $choices[$key] = $key==$none? $command[0]: "$command[0] - This will run '$command[1]' in a separate process group";
+                return $choices;
+            })(),
+            $none, null, true
+        );
+
+        // Set processes to run based on selections
+        foreach( $selections as $selection ){
+            if( $selection == $none ){
+                $this->line( "Additional processes to run: ".$commands[$none][0] );
+                return [];
+            }else
+                $processes[$selection] = $commands[$selection][1];
+        }
+
+        // Inform user of selected processes
+        $this->line( "Additional processes to run: ".implode(", ", array_keys($processes)) );
+        $processes = ['app'=>''] + $processes;
+        return $processes;
+    }
+
+    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, TomlGenerator $generator)
     {
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
@@ -214,6 +257,9 @@ class LaunchCommand extends Command
         $tomlArray['build']['args']['NODE_VERSION'] = $nodeVersion;
         $tomlArray['build']['args']['PHP_VERSION'] = $phpVersion;
 
+        if( $processes )
+            $tomlArray['processes'] = $processes;
+       
         $generator->generateToml($tomlArray, "fly.toml");
     }
 
