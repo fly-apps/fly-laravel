@@ -7,21 +7,21 @@ use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
-class DeployCommand extends Command
+class DeployMySQLCommand extends Command
 {
     /**
      * The signature of the command.
      *
      * @var string
      */
-    protected $signature = 'deploy {--open}';
+    protected $signature = 'deploy:mysql';
 
     /**
      * The description of the command.
      *
      * @var string
      */
-    protected $description = 'Deploy a Laravel application on Fly.io. Add the --open flag to open the app after deploying.';
+    protected $description = 'Deploy a MySQL application on Fly.io.';
 
     /**
      * Execute the console command.
@@ -32,19 +32,13 @@ class DeployCommand extends Command
     {
         try
         {
-            $process = Process::timeout(180)->start("fly deploy", function (string $type, string $output) {
-                echo $output;
+            $process = Process::timeout(180)->start("fly deploy -c .fly/mysql/fly.toml", function (string $type, string $output) {
+                $this->line($output);
             });
             $result = $process->wait()->throw();
-
             $this->line($result->output());
 
-            //if --open is added, run 'fly open' before quitting.
-            if ($this->option('open'))
-            {
-                Process::run("fly open")->throw();
-                $this->info("opened app.");
-            }
+            $this->checkResources();
         }
         catch (ProcessFailedException $e)
         {
@@ -53,6 +47,7 @@ class DeployCommand extends Command
         }
 
         //finalize
+        $this->info("MySQL app deployed successfully!");
         return Command::SUCCESS;
     }
 
@@ -65,5 +60,17 @@ class DeployCommand extends Command
     public function schedule(Schedule $schedule): void
     {
         // $schedule->command(static::class)->everyMinute();
+    }
+
+    private function checkResources()
+    {
+        //Show a warning if the database has less than 1GB of ram
+        $result = Process::run("fly scale show --json -c .fly/mysql/fly.toml")->throw();
+        $resources = json_decode($result->output(), true);
+        foreach($resources as $resource)
+        {
+            $memory = $resource['Memory'];
+            if ($memory < 1048) $this->warn("Warning: Process group '" . $resource['Process'] . "' only has $memory MB of ram configured. Consider giving the database more breathing room by scaling the app: https://fly.io/docs/apps/scale-machine");
+        }
     }
 }

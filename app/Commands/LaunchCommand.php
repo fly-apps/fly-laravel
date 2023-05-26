@@ -8,6 +8,7 @@ use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
+use PhpSchool\CliMenu\CliMenu;
 use Yosymfony\Toml\Toml;
 
 class LaunchCommand extends Command
@@ -24,7 +25,7 @@ class LaunchCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Launch an application on Fly.io';
+    protected $description = 'Launch a Laravel application on Fly.io';
 
     /**
      * Execute the console command.
@@ -44,13 +45,14 @@ class LaunchCommand extends Command
                 } else return Command::SUCCESS;
             }
 
-            // 1. create a fly app, including asking the app name and the organization to deploy the app in
+            // Ask the user all of our questions
             $appNameInput = $this->ask("Choose an app name (leave blank to generate one)"); //not putting --generate-name as the default answer to prevent it being displayed in the prompt
             $appName = '';
 
             $organizationName = $this->getOrganizationName();
             if ($organizationName == "") return Command::SUCCESS;
 
+            // 1. create a fly app, including asking the app name and the organization to deploy the app in
             $this->task("Create app on Fly.io", function() use($appNameInput, $organizationName, &$appName) {
                 $appName = $this->createApp($appNameInput, $organizationName);
                 return true;
