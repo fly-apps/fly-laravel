@@ -2,12 +2,12 @@
 
 namespace App\Commands;
 
+use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
-use PhpSchool\CliMenu\CliMenu;
 use Yosymfony\Toml\Toml;
 
 class LaunchMySQLCommand extends Command
@@ -31,12 +31,12 @@ class LaunchMySQLCommand extends Command
      *
      * @return mixed
      */
-    public function handle()
+    public function handle(FlyIoService $flyIoService)
     {
         try {
             $userInput = [];
-            $this->inputMySQL($userInput);
-            $this->setUpMySQL($userInput);
+            $this->inputMySQL($userInput, $flyIoService);
+            $this->setUpMySQL($userInput, $flyIoService);
         }
         catch (ProcessFailedException $e)
         {
@@ -46,6 +46,7 @@ class LaunchMySQLCommand extends Command
 
         // finalize
         $this->info("MySQL app '" . $userInput['app_name'] . "' is ready to go! Run 'fly-laravel deploy:mysql' to deploy it.");
+        $this->line("Also, don't forget to run the migrations in your Laravel app 😉");
         return Command::SUCCESS;
     }
 
@@ -60,27 +61,55 @@ class LaunchMySQLCommand extends Command
         // $schedule->command(static::class)->everyMinute();
     }
 
-    private function inputMySQL(array &$userInput)
+    private function inputMySQL(array &$userInput, FlyIoService $flyIoService)
     {
-        $laravelAppName = $this->getLaravelAppName();
+        $laravelAppName = $flyIoService->getLaravelAppName();
         $userInput['app_name'] = $this->ask("What should the MySQL app be called?", $laravelAppName . "-mysql");
+        $userInput['organization'] = $this->getOrganizationName($flyIoService);
         $userInput['database_name'] = $this->ask("What should the MySQL database be called?", $laravelAppName);
         $userInput['user_name'] = $this->ask("What should the MySQL user be called?",);
         if ($userInput['user_name'] == "") throw new ProcessFailedException(Process::result("", "MySQL user name cannot be empty."));
         $userInput['volume_name'] = $this->ask("What should the MySQL volume be called?", str_replace("-", "_", $laravelAppName . "-mysqldata"));
-        $userInput['password'] = $this->secret("What should the MySQL password be?");
-        $userInput['root_password'] = $this->secret("What should the MySQL root password be?");
     }
 
-    private function setUpMySQL($userInput)
+    private function getOrganizationName(FlyIoService $flyIoService) : string
     {
-        $this->task("MySQL: Create app on Fly.io", function () use (&$userInput)
+        $organizations = [];
+        $this->task("Retrieving your organizations on Fly.io", function() use ($flyIoService, &$organizations) {
+            $organizations = $flyIoService->getOrganizations();
+            return true;
+        });
+
+        $organizationNames = [];
+        foreach($organizations as $organization)
         {
-            $this->createApp($userInput['app_name'], 'personal');
+            $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
+        }
+
+        if (sizeOf($organizationNames) == 1)
+        {
+            $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
+            return $organizations[0]['slug'];
+        }
+
+        $choice = $this->choice("Select the organization where you want to deploy the app", $organizationNames);
+        $index = array_search($choice, $organizationNames);
+
+        if ($choice == "Cancel") return "";
+
+        return $organizations[$index]["slug"];
+    }
+
+    private function setUpMySQL($userInput, FlyIoService $flyIoService)
+    {
+        $this->task("MySQL: Create app on Fly.io", function () use ($flyIoService, &$userInput)
+        {
+            $flyIoService->createApp($userInput['app_name'], $userInput['organization']);
         });
 
         $this->task("MySQL: Create directories", function () use(&$userInput) {
-            $this->createDirectories($userInput);
+            if (!file_exists(".fly")) Process::run("mkdir .fly")->throw(); // should never be true, but doesn't hurt to check
+            if (!file_exists(".fly/mysql")) Process::run("mkdir .fly/mysql")->throw();
             return true;
         });
 
@@ -89,26 +118,11 @@ class LaunchMySQLCommand extends Command
             return true;
         });
 
-        $this->task("MySQL: Set secrets", function() use(&$userInput) {
-            $this->setSecretsMySQL($userInput);
+        $this->task("MySQL: Create random passwords and set as secrets on the app", function() use($flyIoService, &$userInput) {
+            $this->setSecretsMySQL($userInput, $flyIoService);
             return true;
         });
-
-        $this->info("MySQL app '" . $userInput['app_name'] . "' is ready to go! run 'fly-laravel deploy:mysql' to deploy it.");
-        return Command::SUCCESS;
-    }
-
-    private function getLaravelAppName() : string
-    {
-        if (!file_exists('fly.toml')) return '';
-        $tomlArray = Toml::parseFile('fly.toml');
-        return array_key_exists('app', $tomlArray) ? $tomlArray['app'] : '';
-    }
-
-    private function createDirectories()
-    {
-        if (!file_exists(".fly")) Process::run("mkdir .fly")->throw(); // should never be true, but doesn't hurt to check
-        if (!file_exists(".fly/mysql")) Process::run("mkdir .fly/mysql")->throw();
+        $this->warn("the Laravel app's secrets have been updated but not deployed yet.");
     }
 
     private function generateFlyTomlMySQL(array $mysqlUserInput, TomlGenerator $generator)
@@ -132,34 +146,25 @@ class LaunchMySQLCommand extends Command
         $generator->generateToml($laravelTomlArray, "fly.toml");
     }
 
-    private function setSecretsMySQL(array $mysqlUserInput)
+    private function setSecretsMySQL(array $mysqlUserInput, FlyIoService $flyIoService)
     {
+        //create random passwords
+        $password = base64_encode(random_bytes(32));
+        $rootPassword = base64_encode(random_bytes(32));
+
         // MYSQL Secrets update
-        Process::run("fly secrets set MYSQL_PASSWORD=" . $mysqlUserInput['password'] . " MYSQL_ROOT_PASSWORD=" . $mysqlUserInput['root_password'] .
-            " MYSQL_USER=" . $mysqlUserInput['user_name'] . " -a " . $mysqlUserInput['app_name']. " --stage")->throw();
+        $mysqlSecrets = array(
+            "MYSQL_PASSWORD" => $password,
+            "MYSQL_ROOT_PASSWORD" => $rootPassword,
+            "MYSQL_USER" => $mysqlUserInput['user_name']
+        );
+        $flyIoService->setAppSecrets($mysqlUserInput['app_name'], $mysqlSecrets);
 
         // LARAVEL Secrets update
-        $laravelTomlArray = Toml::parseFile("fly.toml");
-        Process::run("fly secrets set DB_USERNAME=" . $mysqlUserInput['user_name'] . " DB_PASSWORD=" . $mysqlUserInput['password'] . " -a " . $laravelTomlArray['app']. " --stage")->throw();
-    }
-
-    private function createApp($appName, $organizationName): string
-    {
-        if (!$appName) $appName = "--generate-name";
-
-        if (!preg_match("/^[a-z0-9-]+$/", $appName))
-        {
-            throw new ProcessFailedException(Process::result("", "App names are only allowed to contain lowercase, numbers and hyphens.", -1));
-        }
-
-        $result = Process::run("flyctl apps create -o $organizationName --machines $appName")->throw();
-
-        // In case app name is auto generated, extract app name from creation message
-        if( $appName == '--generate-name' ){
-            $appName = explode('New app created:', $result->output())[ 1 ];
-            $appName = str_replace(array("\r", "\n", ' '), '', $appName);
-        }
-
-        return $appName;
+        $laravelSecrets = array(
+            "DB_PASSWORD" => $password,
+            "DB_USERNAME" => $mysqlUserInput['user_name']
+        );
+        $flyIoService->setAppSecrets($flyIoService->getLaravelAppName(), $laravelSecrets);
     }
 }

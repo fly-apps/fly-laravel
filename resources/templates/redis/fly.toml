@@ -1,0 +1,15 @@
+app = "$APP_NAME"
+primary_region = "ams"
+
+[mounts]
+source="$VOLUME_NAME$"
+destination="/data"
+
+[build]
+image = "flyio/redis:6.2.6"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = false
+auto_start_machines = false
