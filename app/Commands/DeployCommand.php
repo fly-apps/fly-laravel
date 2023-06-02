@@ -21,7 +21,7 @@ class DeployCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Deploy an app on Fly.io. Add the --open flag to open the app after deploying.';
+    protected $description = 'Deploy a Laravel application on Fly.io. Add the --open flag to open the app after deploying.';
 
     /**
      * Execute the console command.
@@ -32,9 +32,8 @@ class DeployCommand extends Command
     {
         try
         {
-
-            $process = Process::start("fly deploy", function (string $type, string $output) {
-                $this->line($output);
+            $process = Process::timeout(180)->start("fly deploy", function (string $type, string $output) {
+                echo $output;
             });
             $result = $process->wait()->throw();
 

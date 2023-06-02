@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Commands\DeployCommand;
 use App\Commands\LaunchCommand;
+use App\Commands\LaunchMySQLCommand;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -16,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 LaunchCommand::class,
-                DeployCommand::class
+                DeployCommand::class,
+                LaunchMySQLCommand::class
             ]);
         }
     }
