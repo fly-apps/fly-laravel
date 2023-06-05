@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
+use App\Services\VolumeService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
@@ -33,6 +34,7 @@ class LaunchCommand extends Command
      */
     public function handle(FlyIoService $flyIoService)
     {
+       
         try {
             // First, check if a fly.toml is already present. If so, suggest to use the deployCommand instead.
             if (file_exists('fly.toml')) {
@@ -64,6 +66,13 @@ class LaunchCommand extends Command
                 return true;
             });
 
+            // 3. Set Volume
+            $mount = [];
+            $volumeService = new VolumeService($this);
+            $this->task("Set Volume", function() use(&$mount, $volumeService, $appName){
+                $mount = $volumeService->promptVolume( $appName );
+            });
+
             // 3. Detect Node and PHP versions
             $nodeVersion = "";
             $phpVersion = "";
@@ -75,8 +84,8 @@ class LaunchCommand extends Command
             });
 
             // 4. Generate fly.toml file
-            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
-                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
+            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes, $mount) {
+                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, $mount, new TomlGenerator());
                 return true;
             });
 
@@ -86,6 +95,14 @@ class LaunchCommand extends Command
                 return true;
             });
 
+            // Set Up Volume
+            if( $mount ){
+                $this->task("Set up script for Volume", function() use($volumeService){
+                    $volumeService->setUpVolumeScript();
+                    return true;
+                });
+            }
+
             // 6. Set the APP_KEY secret
             $this->task("set APP_KEY secret", function() use($flyIoService, $appName) {
                 $this->setAppKeySecret($appName, $flyIoService);
@@ -93,7 +110,7 @@ class LaunchCommand extends Command
 
             // 7. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
             if ($this->confirm("Do you want to deploy your app?")) {
-                return $this->call(DeployCommand::class);
+                return $this->call(DeployCommand::class,['--cleanVolumeSetup']);
             }
             else
             {
@@ -224,13 +241,16 @@ class LaunchCommand extends Command
         return $processes;
     }
 
-    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, TomlGenerator $generator)
+    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, array $volume, TomlGenerator $generator)
     {
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
         $tomlArray['app'] = $appName;
         $tomlArray['build']['args']['NODE_VERSION'] = $nodeVersion;
         $tomlArray['build']['args']['PHP_VERSION'] = $phpVersion;
+
+        if( $volume )
+            $tomlArray['mounts'] = $volume; 
 
         if( $processes )
             $tomlArray['processes'] = $processes;
