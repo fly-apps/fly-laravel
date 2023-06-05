@@ -31,7 +31,6 @@ class VolumeService
         );
 
         if( $answer == $this->confirmKey ){
-            // Detect processes setup
             $volumeMount['source'] = $this->command->ask("What should the volume be called?", str_replace("-", "_", $laravelAppName . "-data"));
             $volumeMount['destination'] = '/var/www/html/storage';
         }   
