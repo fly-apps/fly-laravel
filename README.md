@@ -8,6 +8,10 @@ Fly-Laravel assumes that you have flyctl installed, and that you have it connect
 
 These commands will help you set up apps on Fly.io. **Remember that running these apps will cost money!**
 
+## Installation 
+
+Run `composer require fly-apps/fly-laravel` to install the latest version.
+
 ## Usage 
 
 With this package, you can spin up Laravel, MySQL and/or Redis apps on Fly.io . There are two commands for every type of app: `launch` and `deploy`. 
