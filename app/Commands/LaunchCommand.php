@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
+use App\Services\VolumeService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
@@ -64,7 +65,14 @@ class LaunchCommand extends Command
                 return true;
             });
 
-            // 3. Detect Node and PHP versions
+            // 3. Ask user whether to mount volume to storage folder
+            $mount = [];
+            $volumeService = new VolumeService($this);
+            $this->task("Determine whether to persist storage folder", function() use(&$mount, $volumeService, $appName){
+                $mount = $volumeService->promptVolume( $appName );
+            });
+
+            // 4. Detect Node and PHP versions
             $nodeVersion = "";
             $phpVersion = "";
 
@@ -74,26 +82,34 @@ class LaunchCommand extends Command
                 return true;
             });
 
-            // 4. Generate fly.toml file
-            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
-                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
+            // 5. Generate fly.toml file
+            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes, $mount) {
+                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, $mount, new TomlGenerator());
                 return true;
             });
 
-            // 5. Copy over .fly folder, .dockerignore and DockerFile
+            // 6. Copy over .fly folder, .dockerignore and DockerFile
             $this->task("Copy over .fly directory, Dockerfile and .dockerignore", function(){
                 $this->copyFiles();
                 return true;
             });
 
-            // 6. Set the APP_KEY secret
+            // 7. Include a .fly script to restore storage content
+            if( $mount ){
+                $this->task("Set script for restoring storage folder during initial volume mount", function() use($volumeService){
+                    $volumeService->setUpVolumeScript();
+                    return true;
+                });
+            }
+
+            // 8. Set the APP_KEY secret
             $this->task("set APP_KEY secret", function() use($flyIoService, $appName) {
                 $this->setAppKeySecret($appName, $flyIoService);
             });
 
-            // 7. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
+            // 9. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
             if ($this->confirm("Do you want to deploy your app?")) {
-                return $this->call(DeployCommand::class);
+                return $this->call(DeployCommand::class,['--cleanVolumeSetup']);
             }
             else
             {
@@ -224,13 +240,16 @@ class LaunchCommand extends Command
         return $processes;
     }
 
-    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, TomlGenerator $generator)
+    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, array $volume, TomlGenerator $generator)
     {
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
         $tomlArray['app'] = $appName;
         $tomlArray['build']['args']['NODE_VERSION'] = $nodeVersion;
         $tomlArray['build']['args']['PHP_VERSION'] = $phpVersion;
+
+        if( $volume )
+            $tomlArray['mounts'] = $volume; 
 
         if( $processes )
             $tomlArray['processes'] = $processes;

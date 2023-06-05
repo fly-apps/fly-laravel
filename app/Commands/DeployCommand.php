@@ -14,7 +14,7 @@ class DeployCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'deploy {--open}';
+    protected $signature = 'deploy {--open} {--cleanVolumeSetup}';
 
     /**
      * The description of the command.
@@ -52,6 +52,10 @@ class DeployCommand extends Command
             return Command::FAILURE;
         }
 
+        // Volume Clean up
+        if( $this->option('cleanVolumeSetup') ){
+            (new \App\Services\VolumeService($this))->cleanUp();
+        }
         //finalize
         return Command::SUCCESS;
     }
