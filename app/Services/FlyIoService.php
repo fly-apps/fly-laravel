@@ -13,7 +13,7 @@ class FlyIoService
     /**
      * @throws RequestException
      */
-    public function getOrganizations()
+    public function getOrganizations(): array
     {
         $response = Http::withToken($this->getAuthToken())
             ->acceptJson()
@@ -22,12 +22,10 @@ class FlyIoService
             ->throw();
 
         // organizations will be an array of arrays that look like this: array("id" => , "slug" => , "name" => , "type" => , "viewerRole" => )
-        $organizations = $response->collect("data.organizations.nodes")->toArray();
-
-        return $organizations;
+        return $response->collect("data.organizations.nodes")->toArray();
     }
 
-    public function createApp($appName, $organizationName): string
+    public function validateAppName($appName): string
     {
         if (!$appName) $appName = "--generate-name";
 
@@ -35,7 +33,11 @@ class FlyIoService
         {
             throw new ProcessFailedException(Process::result("", "App names are only allowed to contain lowercase, numbers and hyphens.", -1));
         }
+        return $appName;
+    }
 
+    public function createApp($appName, $organizationName): string
+    {
         $result = Process::run("flyctl apps create -o $organizationName --machines $appName")->throw();
 
         // In case app name is auto generated, extract app name from creation message
@@ -47,7 +49,7 @@ class FlyIoService
         return $appName;
     }
 
-    public function setAppSecrets(string $appName, array $secrets)
+    public function setAppSecrets(string $appName, array $secrets): void
     {
         // $secrets should be an array of key-value pairs where the key is the secret's name and the value is the secret's value
 
