@@ -4,10 +4,12 @@ namespace App\Commands;
 
 use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
+use Exception;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
+use Symfony\Component\Console\Command\Command as CommandAlias;
 use Yosymfony\Toml\Toml;
 
 class LaunchRedisCommand extends Command
@@ -33,7 +35,8 @@ class LaunchRedisCommand extends Command
      */
     public function handle(FlyIoService $flyIoService)
     {
-        try {
+        try
+        {
             $userInput = [];
             $this->inputRedis($userInput, $flyIoService);
             $this->setUpRedis($userInput, $flyIoService);
@@ -41,18 +44,18 @@ class LaunchRedisCommand extends Command
         catch (ProcessFailedException $e)
         {
             $this->error($e->result->errorOutput());
-            return Command::FAILURE;
+            return CommandAlias::FAILURE;
         }
 
         // finalize
         $this->info("Redis app '" . $userInput['app_name'] . "' is ready to go! Run 'fly-laravel deploy:redis' to deploy it.");
-        return Command::SUCCESS;
+        return CommandAlias::SUCCESS;
     }
 
     /**
      * Define the command's schedule.
      *
-     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
+     * @param Schedule $schedule
      * @return void
      */
     public function schedule(Schedule $schedule): void
@@ -70,39 +73,40 @@ class LaunchRedisCommand extends Command
 
     private function setUpRedis(array &$userInput, FlyIoService $flyIoService)
     {
-        $this->task("Redis: Create app on Fly.io", function () use ($flyIoService, &$userInput)
-        {
+        $this->task("Redis: Create app on Fly.io", function () use ($flyIoService, &$userInput) {
             $flyIoService->createApp($userInput['app_name'], $userInput['organization']);
         });
 
         $this->task("Redis: Create directories", function () {
-            if (!file_exists(".fly")) Process::run("mkdir .fly")->throw(); // should never be true, but doesn't hurt to check
-            if (!file_exists(".fly/redis")) Process::run("mkdir .fly/redis")->throw();
+            if (!file_exists(".fly")) Process::run("mkdir .fly")
+                                             ->throw(); // should never be true, but doesn't hurt to check
+            if (!file_exists(".fly/redis")) Process::run("mkdir .fly/redis")
+                                                   ->throw();
             return true;
         });
 
-        $this->task("Redis: Generate fly.toml app configuration file", function () use(&$userInput) {
+        $this->task("Redis: Generate fly.toml app configuration file", function () use (&$userInput) {
             $this->generateFlyTomlRedis($userInput, new TomlGenerator());
             return true;
         });
 
-        $this->task("Redis: Create random passwords and set as secrets on the app", function() use($flyIoService, $userInput) {
+        $this->task("Redis: Create random passwords and set as secrets on the app", function () use ($flyIoService, $userInput) {
             $this->setSecretsRedis($userInput, $flyIoService);
             return true;
         });
         $this->warn("the Laravel app's secrets have been updated but not deployed yet.");
     }
 
-    private function getOrganizationName(FlyIoService $flyIoService) : string
+    private function getOrganizationName(FlyIoService $flyIoService): string
     {
         $organizations = [];
-        $this->task("Retrieving your organizations on Fly.io", function() use ($flyIoService, &$organizations) {
+        $this->task("Retrieving your organizations on Fly.io", function () use ($flyIoService, &$organizations) {
             $organizations = $flyIoService->getOrganizations();
             return true;
         });
 
         $organizationNames = [];
-        foreach($organizations as $organization)
+        foreach ($organizations as $organization)
         {
             $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
         }
@@ -143,7 +147,14 @@ class LaunchRedisCommand extends Command
 
     private function setSecretsRedis($userInput, FlyIoService $flyIoService)
     {
-        $secrets = array("REDIS_PASSWORD" => base64_encode(random_bytes(32)));
+        try
+        {
+            $secrets = array("REDIS_PASSWORD" => base64_encode(random_bytes(32)));
+        }
+        catch (Exception $e)
+        {
+            throw new ProcessFailedException(Process::result("", $e->getMessage(), -1));
+        }
 
         // REDIS secrets
         $flyIoService->setAppSecrets($userInput['app_name'], $secrets);

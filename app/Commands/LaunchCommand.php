@@ -4,10 +4,12 @@ namespace App\Commands;
 
 use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
+use Exception;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
+use Symfony\Component\Console\Command\Command as CommandAlias;
 use Yosymfony\Toml\Toml;
 
 class LaunchCommand extends Command
@@ -33,86 +35,51 @@ class LaunchCommand extends Command
      */
     public function handle(FlyIoService $flyIoService)
     {
-        try {
+        try
+        {
             // First, check if a fly.toml is already present. If so, suggest to use the deployCommand instead.
-            if (file_exists('fly.toml')) {
+            if (file_exists('fly.toml'))
+            {
                 $flyTomlArray = Toml::parseFile('fly.toml');
                 $foundAppName = $flyTomlArray['app'];
                 $this->line("An existing fly.toml file was found with app name '$foundAppName'");
-                if ($this->confirm("Do you want to run the deploy command instead?")) {
+                if ($this->confirm("Do you want to run the deploy command instead?"))
+                {
                     $this->call(DeployCommand::class);
-                } else return Command::SUCCESS;
+                } else return CommandAlias::SUCCESS;
             }
 
             // Ask the user all of our questions
-            $appNameInput = $this->ask("Choose an app name (leave blank to generate one)"); //not putting --generate-name as the default answer to prevent it being displayed in the prompt
-            $appName = '';
+            $userInput = [];
 
-            $organizationName = $this->getOrganizationName($flyIoService);
-            if ($organizationName == "") return Command::SUCCESS;
+            $this->inputLaravel($userInput, $flyIoService);
+            if ($userInput['organization'] == "") return CommandAlias::SUCCESS;
 
-            // 1. create a fly app, including asking the app name and the organization to deploy the app in
-            $this->task("Create app on Fly.io", function() use($flyIoService, $appNameInput, $organizationName, &$appName) {
-                $appName = $flyIoService->createApp($appNameInput, $organizationName);
-                return true;
-            });
+            // Set up the Laravel app
+            $this->setUpLaravel($userInput, $flyIoService);
 
-            // 2. Ask user for processes to add
-            $processes = [];
-            $this->task("Set additional process groups", function() use(&$processes) {
-                $processes = $this->setProcesses();
-                return true;
-            });
-
-            // 3. Detect Node and PHP versions
-            $nodeVersion = "";
-            $phpVersion = "";
-
-            $this->task("Detect Node and PHP versions", function() use(&$nodeVersion, &$phpVersion) {
-                $nodeVersion = $this->detectNodeVersion();
-                $phpVersion = $this->detectPhpVersion();
-                return true;
-            });
-
-            // 4. Generate fly.toml file
-            $this->task("Generate fly.toml app configuration file", function() use($appName, $nodeVersion, $phpVersion, $processes) {
-                $this->generateFlyToml($appName, $nodeVersion, $phpVersion, $processes, new TomlGenerator());
-                return true;
-            });
-
-            // 5. Copy over .fly folder, .dockerignore and DockerFile
-            $this->task("Copy over .fly directory, Dockerfile and .dockerignore", function(){
-                $this->copyFiles();
-                return true;
-            });
-
-            // 6. Set the APP_KEY secret
-            $this->task("set APP_KEY secret", function() use($flyIoService, $appName) {
-                $this->setAppKeySecret($appName, $flyIoService);
-            });
-
-            // 7. Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
-            if ($this->confirm("Do you want to deploy your app?")) {
+            // Ask if user wants to deploy. If so, call the DeployCommand. Else, finalize here.
+            if ($this->confirm("Do you want to deploy your app?"))
+            {
                 return $this->call(DeployCommand::class);
-            }
-            else
+            } else
             {
                 // finalize
-                $this->info("App '$appName' is ready to go! Run 'fly-laravel deploy' to deploy it.");
-                return Command::SUCCESS;
+                $this->info("App " . $userInput['app_name'] . " is ready to go! Run 'fly-laravel deploy' to deploy it.");
+                return CommandAlias::SUCCESS;
             }
         }
         catch (ProcessFailedException $e)
         {
             $this->error($e->result->errorOutput());
-            return Command::FAILURE;
+            return CommandAlias::FAILURE;
         }
     }
 
     /**
      * Define the command's schedule.
      *
-     * @param  Schedule  $schedule
+     * @param Schedule $schedule
      * @return void
      */
     public function schedule(Schedule $schedule): void
@@ -120,16 +87,57 @@ class LaunchCommand extends Command
         // $schedule->command(static::class)->everyMinute();
     }
 
-    private function getOrganizationName(FlyIoService $flyIoService) : string
+    private function inputLaravel(array &$userInput, FlyIoService $flyIoService)
+    {
+        $processes = array("cron", "queue worker");
+
+        $userInput['app_name'] = $this->ask("Choose an app name (leave blank to generate one)");
+        $userInput['app_name'] = $flyIoService->validateAppName($userInput['app_name']);
+
+        $userInput['organization'] = $this->getOrganizationName($flyIoService);
+
+        $userInput['additional_processes'] = $this->choice("Select additional processes to run (comma-separated)", $processes, null, null, true);
+
+        $userInput['node_version'] = $this->detectNodeVersion();
+        $userInput['php_version'] = $this->detectPhpVersion();
+    }
+
+    private function setupLaravel(array &$userInput, FlyIoService $flyIoService)
+    {
+        // Create a fly app
+        $this->task("Create app on Fly.io", function () use ($flyIoService, &$userInput) {
+            $userInput['app_name'] = $flyIoService->createApp($userInput['app_name'], $userInput['organization']);
+            return true;
+        });
+
+        // Generate fly.toml file
+        $this->task("Generate fly.toml app configuration file", function () use ($userInput) {
+            $this->generateFlyToml($userInput, new TomlGenerator());
+            return true;
+        });
+
+        // Copy over .fly folder, .dockerignore and DockerFile
+        $this->task("Copy over .fly directory, Dockerfile and .dockerignore", function () {
+            $this->copyFiles();
+            return true;
+        });
+
+        // Set the APP_KEY secret
+        $this->task("set APP_KEY secret", function () use ($flyIoService, $userInput) {
+            $this->setAppKeySecret($userInput['app_name'], $flyIoService);
+        });
+    }
+
+    private function getOrganizationName(FlyIoService $flyIoService): string
     {
         $organizations = [];
-        $this->task("Retrieving your organizations on Fly.io", function() use ($flyIoService, &$organizations) {
+        $this->task("Retrieving your organizations on Fly.io", function () use ($flyIoService, &$organizations) {
             $organizations = $flyIoService->getOrganizations();
             return true;
         });
 
         $organizationNames = [];
-        foreach($organizations as $organization)
+        foreach ($organizations as $organization)
         {
             $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
         }
@@ -148,18 +156,18 @@ class LaunchCommand extends Command
         return $organizations[$index]["slug"];
     }
 
-    private function detectNodeVersion() : string
+    private function detectNodeVersion(): string
     {
         $result = Process::run("node -v");
-        if (!preg_match('/v(\d+)./', $result->output(), $matches)) {
-            throw new ProcessFailedException(Process::result("","Could not detect Node version", -1));
+        if (!preg_match('/v(\d+)./', $result->output(), $matches))
+        {
+            throw new ProcessFailedException(Process::result("", "Could not detect Node version", -1));
         }
 
-        $nodeVersion = $matches[1];
-        return $nodeVersion;
+        return $matches[1];
     }
 
-    private function detectPhpVersion()
+    private function detectPhpVersion(): string
     {
         // Default Version
         $defaultVersion = "8.0";
@@ -184,80 +192,65 @@ class LaunchCommand extends Command
         // found version is OK, use it.
         // $resultVersion has 3 digits, like this: 8.1.10 . We only need two so take only the first 2.
         $resultArray = explode(".", $resultVersion);
-        $resultVersion = "$resultArray[0].$resultArray[1]";
-        return $resultVersion;
+        return "$resultArray[0].$resultArray[1]";
     }
 
-    private function setProcesses( array $processes=[] ): array
-    {
-        // Command List
-        $none = 'none';
-        $commands = [
-            'cron'   => ['Scheduler    ', 'cron -f'],
-            'worker' => ['Queue Workers', 'php artisan queue:listen'],
-            $none    => ['None'],
-        ];
-
-        // Set choices to choose from based on Command List
-        $selections = $this->choice(
-            "Select additional processes to run ( Comma separate keys or Leave blank to run none )",
-            (function($choices=[]) use($commands, $none){
-                foreach($commands as $key=>$command)
-                    $choices[$key] = $key==$none? $command[0]: "$command[0] - This will run '$command[1]' in a separate process group";
-                return $choices;
-            })(),
-            $none, null, true
-        );
-
-        // Set processes to run based on selections
-        foreach( $selections as $selection ){
-            if( $selection == $none ){
-                $this->line( "Additional processes to run: ".$commands[$none][0] );
-                return [];
-            }else
-                $processes[$selection] = $commands[$selection][1];
-        }
-
-        // Inform user of selected processes
-        $this->line( "Additional processes to run: ".implode(", ", array_keys($processes)) );
-        $processes = ['app'=>''] + $processes;
-        return $processes;
-    }
-
-    private function generateFlyToml(string $appName, string $nodeVersion, string $phpVersion, array $processes, TomlGenerator $generator)
+    private function generateFlyToml(array $userInput, TomlGenerator $generator)
     {
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
-        $tomlArray['app'] = $appName;
-        $tomlArray['build']['args']['NODE_VERSION'] = $nodeVersion;
-        $tomlArray['build']['args']['PHP_VERSION'] = $phpVersion;
+        $tomlArray['app'] = $userInput['app_name'];
+        $tomlArray['build']['args']['NODE_VERSION'] = $userInput['node_version'];
+        $tomlArray['build']['args']['PHP_VERSION'] = $userInput['php_version'];
 
-        if( $processes )
-            $tomlArray['processes'] = $processes;
+        if ($userInput['additional_processes'])
+        {
+            $tomlArray['processes'] += ['app' => ''];
+            foreach($userInput['additional_processes'] as $process)
+            {
+                switch ($process){
+                    case 'cron':
+                        $tomlArray['processes'] += ['cron' => 'cron -f'];
+                        break;
+                    case 'queue worker':
+                        $tomlArray['processes'] += ['worker' => 'php artisan queue:listen'];
+                        break;
+                }
+            }
+        }
 
         $generator->generateToml($tomlArray, "fly.toml");
     }
 
     private function copyFiles()
     {
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly")->throw();
+        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly")
+               ->throw();
 
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore")->throw();
+        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore")
+               ->throw();
 
         // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
         if (file_exists('Dockerfile'))
         {
             $this->line("Existing Dockerfile found, using that instead of the default Dockerfile.");
-        }
-        else
+        } else
         {
-            Process::run("cp " . __DIR__ . '/../../resources/templates/Dockerfile Dockerfile')->throw();
+            Process::run("cp " . __DIR__ . '/../../resources/templates/Dockerfile Dockerfile')
+                   ->throw();
         }
     }
 
     private function setAppKeySecret(string $appName, FlyIoService $flyIoService)
     {
-        $APP_KEY = "base64:" . base64_encode(random_bytes(32)); // generate random app key, and encrypt it
-        $flyIoService->setAppSecrets($appName, ["APP_KEY" => $APP_KEY]);
+        try
+        {
+            $APP_KEY = "base64:" . base64_encode(random_bytes(32)); // generate random app key, and encrypt it
+            $flyIoService->setAppSecrets($appName, ["APP_KEY" => $APP_KEY]);
+        }
+        catch (Exception $e)
+        {
+            throw new ProcessFailedException(Process::result("", $e->getMessage(), -1));
+        }
     }
 }

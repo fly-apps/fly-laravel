@@ -9,7 +9,7 @@ destination="/data"
 image = "flyio/redis:6.2.6"
 
 [http_service]
-internal_port = 8080
+internal_port = 6379
 force_https = true
 auto_stop_machines = false
 auto_start_machines = false
