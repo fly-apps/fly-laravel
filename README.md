@@ -34,7 +34,10 @@ To set up the app, a number of steps will occur to set up a basic Laravel app:
 - Some folders and files are copied over, most notably the Dockerfile.
 - A randomly generated `APP_KEY` will be set as a [secret](https://fly.io/docs/reference/secrets/) on your app. 
 
-After that, your app will be ready to deploy! In your project root, a `.fly` folder will be added alongside a `Dockerfile` and a `fly.toml` file. 
+A note on the configured `SESSION_DRIVER` in the `fly.toml` file:
+- By default, your Laravel app will be configured with [Cookie-based session storage](https://fly.io/laravel-bytes/taking-laravel-global/#:~:text=The-,simplest%20solution,-here%20is%20to). This allows sessions to work across multiple instances of your web app without the need of an external session service like Redis to make session data available to all the instances. Of course Cookie-based session storage has limits on how much session data it can store, so you might want to consider replacing this to allow storage of larger data.
+
+After set up, your app will be ready to deploy! In your project root, a `.fly` folder will be added alongside a `Dockerfile` and a `fly.toml` file. 
 
 When launching databases you will need to deploy again so launch those before deploying the laravel app. 
 
