@@ -96,6 +96,9 @@ class DeployMySQLCommand extends Command
 
             //Show a warning if the database has less than 1GB of ram
             if ($memory < 1048) $this->warn("Warning: Process group '$process' only has $memory MB of ram configured. Consider giving the database more breathing room by scaling the app: https://fly.io/docs/apps/scale-machine");
+
+            //Show a warning if the app is only running in 1 machine
+            if ($count < 2) $this->warn("Warning: Process group '$process' is running on 1 machine. We recommend running at least 2 instances for high reliability. Documentation: https://fly.io/docs/apps/scale-count/#scale-up");
         }
     }
 }
