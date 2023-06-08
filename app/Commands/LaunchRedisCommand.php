@@ -65,9 +65,24 @@ class LaunchRedisCommand extends Command
 
     private function inputRedis(array &$userInput, FlyIoService $flyIoService)
     {
+        $organizationsPromise = $flyIoService->getOrganizations();
+
         $laravelAppName = $flyIoService->getLaravelAppName();
-        $userInput['app_name'] = $this->ask("What should the Redis app be called?", $laravelAppName . "-redis");
-        $userInput['organization'] = $this->getOrganizationName($flyIoService);
+        $useLaravelAppConfig = false;
+        if ($laravelAppName !== '') $useLaravelAppConfig = $this->confirm("Laravel app '$laravelAppName' detected. Use this app's configuration for organization & primary region?");
+
+        $userInput['app_name'] = $this->ask("What should the Redis app be called?", $useLaravelAppConfig ? $laravelAppName . "-redis" : null);
+
+        if ($useLaravelAppConfig) $userInput['organization'] = $flyIoService->getLaravelOrganization();
+        else
+        {
+            $organizations = $organizationsPromise->wait()
+                ->throw()
+                ->collect("data.organizations.nodes")
+                ->toArray();
+            $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
+        }
+
         $userInput['volume_name'] = $this->ask("What should the Redis volume be called?", str_replace("-", "_", $laravelAppName . "-redisdata"));
     }
 
@@ -95,34 +110,6 @@ class LaunchRedisCommand extends Command
             return true;
         });
         $this->warn("the Laravel app's secrets have been updated but not deployed yet.");
-    }
-
-    private function getOrganizationName(FlyIoService $flyIoService): string
-    {
-        $organizations = [];
-        $this->task("Retrieving your organizations on Fly.io", function () use ($flyIoService, &$organizations) {
-            $organizations = $flyIoService->getOrganizations();
-            return true;
-        });
-
-        $organizationNames = [];
-        foreach ($organizations as $organization)
-        {
-            $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
-        }
-
-        if (sizeOf($organizationNames) == 1)
-        {
-            $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
-            return $organizations[0]['slug'];
-        }
-
-        $choice = $this->choice("Select the organization where you want to deploy the app", $organizationNames);
-        $index = array_search($choice, $organizationNames);
-
-        if ($choice == "Cancel") return "";
-
-        return $organizations[$index]["slug"];
     }
 
     private function generateFlyTomlRedis(array $userInput, TomlGenerator $generator)

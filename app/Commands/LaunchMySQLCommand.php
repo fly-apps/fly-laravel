@@ -66,42 +66,40 @@ class LaunchMySQLCommand extends Command
 
     private function inputMySQL(array &$userInput, FlyIoService $flyIoService)
     {
+        // make slow api calls asynchronously, so they run while the user fills in the prompts.
+        $organizationsPromise = $flyIoService->getOrganizations();
+        $regionsProcess = Process::start("flyctl platform regions --json");
+
         $laravelAppName = $flyIoService->getLaravelAppName();
-        $userInput['app_name'] = $this->ask("What should the MySQL app be called?", $laravelAppName . "-mysql");
-        $userInput['organization'] = $this->getOrganizationName($flyIoService);
+        $useLaravelAppConfig = false;
+        if ($laravelAppName !== '') $useLaravelAppConfig = $this->confirm("Laravel app '$laravelAppName' detected. Use this app's configuration for organization & primary region?");
+
+        $userInput['app_name'] = $this->ask("What should the MySQL app be called?", $useLaravelAppConfig ? $laravelAppName . "-mysql" : null);
+
+        if ($useLaravelAppConfig) $userInput['organization'] = $flyIoService->getLaravelOrganization();
+        else
+        {
+            $organizations = $organizationsPromise->wait()
+                ->throw()
+                ->collect("data.organizations.nodes")
+                ->toArray();
+            $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
+        }
+
+        if ($useLaravelAppConfig) $userInput['primary_region'] = $flyIoService->getLaravelPrimaryRegion();
+        else
+        {
+            $regionsJson = $regionsProcess->wait()
+                ->throw()
+                ->output();
+            $userInput['primary_region'] = $flyIoService->askPrimaryregion($regionsJson, $this);
+        }
+
         $userInput['database_name'] = $this->ask("What should the MySQL database be called?", $laravelAppName);
-        $userInput['user_name'] = $this->ask("What should the MySQL user be called?");
-        if ($userInput['user_name'] == "") throw new ProcessFailedException(Process::result("", "MySQL user name cannot be empty."));
+
         $userInput['volume_name'] = $this->ask("What should the MySQL volume be called?", str_replace("-", "_", $laravelAppName . "-mysqldata"));
     }
 
-    private function getOrganizationName(FlyIoService $flyIoService): string
-    {
-        $organizations = [];
-        $this->task("Retrieving your organizations on Fly.io", function () use ($flyIoService, &$organizations) {
-            $organizations = $flyIoService->getOrganizations();
-            return true;
-        });
-
-        $organizationNames = [];
-        foreach ($organizations as $organization)
-        {
-            $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
-        }
-
-        if (sizeOf($organizationNames) == 1)
-        {
-            $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
-            return $organizations[0]['slug'];
-        }
-
-        $choice = $this->choice("Select the organization where you want to deploy the app", $organizationNames);
-        $index = array_search($choice, $organizationNames);
-
-        if ($choice == "Cancel") return "";
-
-        return $organizations[$index]["slug"];
-    }
 
     private function setUpMySQL($userInput, FlyIoService $flyIoService)
     {
@@ -111,9 +109,9 @@ class LaunchMySQLCommand extends Command
 
         $this->task("MySQL: Create directories", function () use (&$userInput) {
             if (!file_exists(".fly")) Process::run("mkdir .fly")
-                                             ->throw(); // should never be true, but doesn't hurt to check
+                ->throw(); // should never be true, but doesn't hurt to check
             if (!file_exists(".fly/mysql")) Process::run("mkdir .fly/mysql")
-                                                   ->throw();
+                ->throw();
             return true;
         });
 
@@ -154,8 +152,9 @@ class LaunchMySQLCommand extends Command
     {
         try
         {
-            //create random passwords
+            //create random passwords and username
             $password = base64_encode(random_bytes(32));
+            $username = base64_encode(random_bytes(32));
             $rootPassword = base64_encode(random_bytes(32));
         }
         catch (Exception $e)
@@ -167,14 +166,14 @@ class LaunchMySQLCommand extends Command
         $mysqlSecrets = array(
             "MYSQL_PASSWORD" => $password,
             "MYSQL_ROOT_PASSWORD" => $rootPassword,
-            "MYSQL_USER" => $mysqlUserInput['user_name']
+            "MYSQL_USER" => $username
         );
         $flyIoService->setAppSecrets($mysqlUserInput['app_name'], $mysqlSecrets);
 
         // LARAVEL Secrets update
         $laravelSecrets = array(
             "DB_PASSWORD" => $password,
-            "DB_USERNAME" => $mysqlUserInput['user_name']
+            "DB_USERNAME" => $username
         );
         $flyIoService->setAppSecrets($flyIoService->getLaravelAppName(), $laravelSecrets);
     }
