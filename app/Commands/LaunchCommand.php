@@ -5,6 +5,7 @@ namespace App\Commands;
 use App\Services\FlyIoService;
 use App\Services\TomlGenerator;
 use Exception;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Process;
@@ -74,6 +75,11 @@ class LaunchCommand extends Command
             $this->error($e->result->errorOutput());
             return CommandAlias::FAILURE;
         }
+        catch (RequestException $e)
+        {
+            $this->error($e->getMessage());
+            return CommandAlias::FAILURE;
+        }
     }
 
     /**
@@ -89,14 +95,27 @@ class LaunchCommand extends Command
 
     private function inputLaravel(array &$userInput, FlyIoService $flyIoService)
     {
-        $processes = array("cron", "queue worker");
+        // make slow api calls asynchronously, so they run while the user fills in the prompts.
+        $organizationsPromise = $flyIoService->getOrganizations();
+        $regionsProcess = Process::start("flyctl platform regions --json");
+
+        $processes = array("cron", "queue worker", "none");
 
         $userInput['app_name'] = $this->ask("Choose an app name (leave blank to generate one)");
         $userInput['app_name'] = $flyIoService->validateAppName($userInput['app_name']);
 
-        $userInput['organization'] = $this->getOrganizationName($flyIoService);
+        $organizations = $organizationsPromise->wait()
+            ->throw()
+            ->collect("data.organizations.nodes")
+            ->toArray();
+        $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
 
-        $userInput['additional_processes'] = $this->choice("Select additional processes to run (comma-separated)", $processes, null, null, true);
+        $regionsJson = $regionsProcess->wait()
+            ->throw()
+            ->output();
+        $userInput['primary_region'] = $flyIoService->askPrimaryRegion($regionsJson, $this);
+
+        $userInput['additional_processes'] = $this->choice("Select additional processes to run (comma-separated)", $processes, 2, null, true);
 
         $userInput['node_version'] = $this->detectNodeVersion();
         $userInput['php_version'] = $this->detectPhpVersion();
@@ -126,34 +145,6 @@ class LaunchCommand extends Command
         $this->task("set APP_KEY secret", function () use ($flyIoService, $userInput) {
             $this->setAppKeySecret($userInput['app_name'], $flyIoService);
         });
-    }
-
-    private function getOrganizationName(FlyIoService $flyIoService): string
-    {
-        $organizations = [];
-        $this->task("Retrieving your organizations on Fly.io", function () use ($flyIoService, &$organizations) {
-            $organizations = $flyIoService->getOrganizations();
-            return true;
-        });
-
-        $organizationNames = [];
-        foreach ($organizations as $organization)
-        {
-            $organizationNames[] = $organization["type"] == "PERSONAL" ? "Personal" : $organization["name"];
-        }
-
-        if (sizeOf($organizationNames) == 1)
-        {
-            $this->line("Auto-selected '$organizationNames[0]' since it is the only organization found on Fly.io .");
-            return $organizations[0]['slug'];
-        }
-
-        $choice = $this->choice("Select the organization where you want to deploy the app", $organizationNames);
-        $index = array_search($choice, $organizationNames);
-
-        if ($choice == "Cancel") return "";
-
-        return $organizations[$index]["slug"];
     }
 
     private function detectNodeVersion(): string
@@ -200,6 +191,8 @@ class LaunchCommand extends Command
         $tomlArray = Toml::parseFile(__DIR__ . "/../../resources/templates/fly.toml");
 
         $tomlArray['app'] = $userInput['app_name'];
+        $tomlArray['primary_region'] = $userInput['primary_region'];
+
         $tomlArray['build']['args']['NODE_VERSION'] = $userInput['node_version'];
         $tomlArray['build']['args']['PHP_VERSION'] = $userInput['php_version'];
 
