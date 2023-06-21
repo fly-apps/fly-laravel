@@ -46,7 +46,7 @@ class LaunchCommand extends Command
                 $this->line("An existing fly.toml file was found with app name '$foundAppName'");
                 if ($this->confirm("Do you want to run the deploy command instead?"))
                 {
-                    $this->call(DeployCommand::class);
+                    return $this->call(DeployCommand::class);
                 } else return CommandAlias::SUCCESS;
             }
 
