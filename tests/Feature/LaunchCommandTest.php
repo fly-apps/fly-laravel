@@ -7,7 +7,7 @@ it('Exits when fly.toml exists and user declines deploy prompt.', function () {
     // PREP: Temp Copy flytoml template
     $this->createTemporaryFlyTomlFile();
 
-    // ACTION: Run Launch Command + Assert EXIT ( no )
+    // ACTION: Run Launch Command + Decline deploy command
     $this->artisan( $this::LAUNCH_STR ) 
     ->expectsConfirmation( 'Do you want to run the deploy command instead?', 'no' )
     ->assertExitCode( CommandAlias::SUCCESS ); 
@@ -25,7 +25,7 @@ it('Triggers Deploy command when fly.toml exists and user accepts deploy prompt.
     // PREP: Temp Copy flytoml template
     $this->createTemporaryFlyTomlFile();
 
-    // ACTION: Run Launch Command + Assert trigger Deploy Command ( yes )
+    // ACTION: Run Launch Command + Accept deploy prompt
     $this->artisan('launch')
     ->expectsConfirmation('Do you want to run the deploy command instead?','yes');
 
@@ -39,10 +39,13 @@ it('Triggers Deploy command when fly.toml exists and user accepts deploy prompt.
 
 it('Declines invalid app names.', function(){
 
-    // Testing throwing exception not working : $this->expectException(\Illuminate\Process\Exceptions\ProcessFailedException::class);
+    // Exception Test: Not working : $this->expectException(\Illuminate\Process\Exceptions\ProcessFailedException::class);
+
+    // ACTION: Run Launch Command + Provide Invalid App Name 
+    // ASSERT: Exit Code is Failure Code
     $this->artisan('launch')
     ->expectsQuestion('Choose an app name (leave blank to generate one)','$')
-    ->assertExitCode(CommandAlias::FAILURE); // Check exit code instead of thrown exception
+    ->assertExitCode(CommandAlias::FAILURE); 
 
 });
 
