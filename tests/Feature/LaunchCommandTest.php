@@ -8,7 +8,7 @@ it('Exits when fly.toml exists and user declines deploy prompt.', function () {
     $this->createTemporaryFlyTomlFile();
 
     // ACTION: Run Launch Command + Assert EXIT ( no )
-    $this->artisan( $this::LAUNCH_STR )
+    $this->artisan( $this::LAUNCH_STR ) 
     ->expectsConfirmation( 'Do you want to run the deploy command instead?', 'no' )
     ->assertExitCode( CommandAlias::SUCCESS ); 
 
@@ -36,3 +36,14 @@ it('Triggers Deploy command when fly.toml exists and user accepts deploy prompt.
     $this->deleteFlyTomlFileInBaseDir();
     
 });
+
+it('Declines invalid app names.', function(){
+
+    // Testing throwing exception not working : $this->expectException(\Illuminate\Process\Exceptions\ProcessFailedException::class);
+    $this->artisan('launch')
+    ->expectsQuestion('Choose an app name (leave blank to generate one)','$')
+    ->assertExitCode(CommandAlias::FAILURE); // Check exit code instead of thrown exception
+
+});
+
+
