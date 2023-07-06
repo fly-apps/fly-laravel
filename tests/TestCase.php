@@ -8,15 +8,25 @@ abstract class TestCase extends BaseTestCase
 {
     use CreatesApplication;
 
-    /** COMMAND NAMES */
-    public const DEPLOY_STR = 'deploy'; 
-    public const LAUNCH_STR = 'launch';
+    /** COMMAND SIGNATURES */
+    public const LAUNCH_SIGNATURE = 'launch';
+
+    /** COMMAND CLASS */
+    public const DEPLOY_CLASS = 'App\Commands\DeployCommand'; 
 
     /** FILE NAMES */
     public const FLY_TOML_FILE_NAME_STR = 'fly.toml';
 
+    /** QUESTIONS */
+    public const ASK_TO_DEPLOY_INSTEAD = 'Do you want to run the deploy command instead?';
+
+    /** QUESTION ANSWERS */
+    public const ANSWER_NO = 'no';
+    public const ANSWER_YES = 'yes';
+
     /** TEMPLATE PATHS */
     public const TEMPLATE_PATH_STR = 'resources/templates';
+
 
     /** PREPARATION FUNCTIONS */
     function createTemporaryFlyTomlFile()

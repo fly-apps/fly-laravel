@@ -2,42 +2,54 @@
 
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
-it('Exits when fly.toml exists and user declines deploy prompt.', function () {
+
+/** 
+ * Fly TOML Present Features
+ */
+test('Exits when fly.toml exists and user declines deploy prompt.', function () {
 
     // PREP: Temp Copy flytoml template
     $this->createTemporaryFlyTomlFile();
 
     // ACTION: Run Launch Command + Decline deploy command
-    $this->artisan( $this::LAUNCH_STR ) 
-    ->expectsConfirmation( 'Do you want to run the deploy command instead?', 'no' )
-    ->assertExitCode( CommandAlias::SUCCESS ); 
+    $this->artisan( $this::LAUNCH_SIGNATURE )
+    ->expectsConfirmation( 
+        $this::ASK_TO_DEPLOY_INSTEAD,
+        $this::ANSWER_NO
+    )->assertExitCode( CommandAlias::SUCCESS ); 
 
     // ASSERT: Deploy Command was not called
-    $this->assertCommandNotCalled( $this::DEPLOY_STR );
+    $this->assertCommandNotCalled( $this::DEPLOY_CLASS );
     
     // CLEAN: Delete temp fly.toml 
     $this->deleteFlyTomlFileInBaseDir();
 
 });
 
-it('Triggers Deploy command when fly.toml exists and user accepts deploy prompt.', function(){
+test('Triggers Deploy command when fly.toml exists and user accepts deploy prompt.', function(){
 
     // PREP: Temp Copy flytoml template
     $this->createTemporaryFlyTomlFile();
 
     // ACTION: Run Launch Command + Accept deploy prompt
-    $this->artisan('launch')
-    ->expectsConfirmation('Do you want to run the deploy command instead?','yes');
+    $this->artisan( $this::LAUNCH_SIGNATURE )
+    ->expectsConfirmation( 
+        $this::ASK_TO_DEPLOY_INSTEAD,
+        $this::ANSWER_YES
+    );
 
     // ASSERT: Deploy commmand called
-    $this->assertCommandCalled('App\Commands\DeployCommand');
+    $this->assertCommandCalled( $this::DEPLOY_CLASS );
 
     // CLEAN: Delete temp fly.toml 
     $this->deleteFlyTomlFileInBaseDir();
     
 });
 
-it('Declines invalid app names.', function(){
+/**
+ * Input Features
+ */
+test('Declines invalid app names.', function(){
 
     // Exception Test: Not working : $this->expectException(\Illuminate\Process\Exceptions\ProcessFailedException::class);
 
