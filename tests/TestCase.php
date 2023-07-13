@@ -4,6 +4,7 @@ namespace Tests;
 
 use LaravelZero\Framework\Testing\TestCase as BaseTestCase;
 
+
 class TestCase extends BaseTestCase
 {
     use CreatesApplication;
@@ -46,11 +47,30 @@ class TestCase extends BaseTestCase
         return [
             [
                 "id" => "testId",
-                "slug" => "testSlug",
+                "slug" => "PERSONAL",
                 "name" => "testName",
                 "type" => "PERSONAL",
                 "viewerRole" => "admin",
             ] 
         ];
+    }
+
+    
+    function commandWithOutput()
+    {
+        // Command instance with output attribute 
+        
+        $out = new \Symfony\Component\Console\Output\BufferedOutput(
+            \Symfony\Component\Console\Output\OutputInterface::OUTPUT_RAW,
+            true
+        );
+
+        $comm = new \App\Commands\LaunchCommand();
+        $comm->setOutput( new \Illuminate\Console\OutputStyle( 
+            new \Symfony\Component\Console\Input\ArrayInput([]),  
+            $out 
+        ) );
+
+        return $comm;
     }
 }
