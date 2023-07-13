@@ -72,10 +72,9 @@ test( 'Exits with failure when invalid app name ', function(){
 
 });
 
-/**
- * The following test still does not work because of not being able to mock other functions that run after the feature I want to test
- * Might run this as a unit test instead
-     test( 'Selects Personal organization when only one organization is available.', function(){
+
+/**TODO:Either this or 'askOrganizationName selects Personal organization when only one organization is available.' */
+test( 'Selects Personal organization when only one organization is available.', function(){
 
         // Make sure that call to these url are mocked with predefined data
         Http::fake([
@@ -137,5 +136,5 @@ test( 'Exits with failure when invalid app name ', function(){
         ->expectsQuestion( $this::ASK_CHOOSE_APP_NAME_OR_BLANK, 'test' )
         ->expectsQuestion( 'Select additional processes to run (comma-separated)', '' );
 
-    });
-*/
+})->todo();
+

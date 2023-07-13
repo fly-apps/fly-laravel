@@ -4,7 +4,7 @@ namespace Tests;
 
 use LaravelZero\Framework\Testing\TestCase as BaseTestCase;
 
-abstract class TestCase extends BaseTestCase
+class TestCase extends BaseTestCase
 {
     use CreatesApplication;
 
@@ -38,5 +38,19 @@ abstract class TestCase extends BaseTestCase
     function deleteFlyTomlFileInBaseDir()
     {
         unlink( './'.$this::FLY_TOML_FILE_NAME_STR );
+    }
+
+    /** MOCK FUNCTIONS  */
+    function organizationsMock()
+    {
+        return [
+            [
+                "id" => "testId",
+                "slug" => "testSlug",
+                "name" => "testName",
+                "type" => "PERSONAL",
+                "viewerRole" => "admin",
+            ] 
+        ];
     }
 }
