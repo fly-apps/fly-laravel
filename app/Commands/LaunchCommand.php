@@ -35,7 +35,7 @@ class LaunchCommand extends Command
      * @return mixed
      */
     public function handle(FlyIoService $flyIoService)
-    {
+    { 
         try
         {
             // First, check if a fly.toml is already present. If so, suggest to use the deployCommand instead.
@@ -108,6 +108,7 @@ class LaunchCommand extends Command
             ->throw()
             ->collect("data.organizations.nodes")
             ->toArray();
+            
         $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
 
         $regionsJson = $regionsProcess->wait()
