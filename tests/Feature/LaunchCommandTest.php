@@ -2,10 +2,6 @@
 
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use Illuminate\Support\Facades\Http;
-use Mockery;
-
-use Illuminate\Process\PendingProcess;
-use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use App\Services\FlyIoService;
 use Mockery\MockInterface;
@@ -35,7 +31,7 @@ test( 'Exits when fly.toml exists and user declines deploy prompt.', function ()
     $this->assertCommandNotCalled( $this::DEPLOY_CLASS );
     
     // CLEAN: Delete temp fly.toml 
-    $this->deleteFlyTomlFileInBaseDir();
+    $this->deleteFileInBaseDir( $this::FLY_TOML_FILE_NAME_STR );
 
 });
 
@@ -55,14 +51,14 @@ test( 'Triggers Deploy command when fly.toml exists and user accepts deploy prom
     $this->assertCommandCalled( $this::DEPLOY_CLASS );
 
     // CLEAN: Delete temp fly.toml 
-    $this->deleteFlyTomlFileInBaseDir();
+    $this->deleteFileInBaseDir( $this::FLY_TOML_FILE_NAME_STR );
     
 });
 
 /**
  * Input Features
  */
-test( 'Exits with failure when invalid app name ', function(){ 
+test( 'Exits with failure when invalid app name is given.', function(){ 
 
     // ACTION: Run Launch Command + Provide Invalid App Name 
     // ASSERT: Exit Code is Failure Code
@@ -72,69 +68,55 @@ test( 'Exits with failure when invalid app name ', function(){
 
 });
 
+test( 'Initializes config files for a Laravel fly app and exits successfully when Deploy prompt declined.', function(){
 
-/**TODO:Either this or 'askOrganizationName selects Personal organization when only one organization is available.' */
-test( 'Selects Personal organization when only one organization is available.', function(){
+    /** PREPARATION */
+    // Mock orgs listed from graphql api
+    Http::fake([
+        'https://api.fly.io/graphql' => Http::response(
+            file_get_contents('tests/Assets/orgs-graphql.json')
+        )
+    ]);
 
-        // Make sure that call to these url are mocked with predefined data
-        Http::fake([
-            'https://api.fly.io/graphql' => Http::response([
-                'data'=>[
-                    'currentUser'=>['email'=>'test@test.com'],
-                    'organizations'=>[
-                        'nodes'=>[
-                            [
-                                "id" => "testId",
-                                "slug" => "testSlug",
-                                "name" => "testName",
-                                "type" => "PERSONAL",
-                                "viewerRole" => "admin",
-                            ] 
-                        ]
-                    ]
-                ]
-            ])
-        ]);
+    // Mock regions listed from flyctl
+    Process::fake([
+        'flyctl platform regions --json' => Process::describe()
+        ->output(file_get_contents('tests/Assets/regions.json'))
+        ->errorOutput('First line of error output')
+        ->exitCode(0)
+    ]);
 
-        // Mock Process for platform regions list
-        Process::fake([
-            'flyctl platform regions --json' => Process::describe()
-            ->output(file_get_contents('tests/Assets/resp.json'))
-            ->errorOutput('First line of error output')
-            ->exitCode(0)
-        ]);
+    // Mock methods of the FlyioService
+    $this->partialMock(
+        FlyIoService::class,
+        function (MockInterface $mock) {
 
-        // Mock the methods of the FlyioService
-        $pM = $this->partialMock(
-            FlyIoService::class,
-            function (MockInterface $mock) {
+            $mock
+            ->shouldReceive('createApp')
+            ->andReturn('sample-app-name');
 
-                $mock
-                ->shouldReceive('askOrganizationName')
-                ->andReturn('stes');
+            $mock
+            ->shouldReceive('setAppSecrets');
+        }
+    );
 
-                $mock
-                ->shouldReceive('askPrimaryRegion')
+    /** ACTION */
+    $this->artisan('launch')
+    ->expectsQuestion( $this::ASK_CHOOSE_APP_NAME_OR_BLANK, '' )
+    ->expectsOutputToContain("Personal") 
+    ->expectsQuestion( $this::ASK_SELECT_APP_PRIMARY_REGION, 'ams' )
+    ->expectsQuestion( $this::ASK_SELECT_PROCESSES, ['none'] )
+    ->expectsQuestion( $this::ASK_DEPLOY_APP, false )
+    ->assertExitCode( CommandAlias::SUCCESS );
     
-                ->andReturn('sdfs');
-            }
-        );
+    /** ASSERTION */
+    foreach( $this::FLY_CONFIG_FILES as $fileToCheck ){
+        $fileExists = file_exists($fileToCheck);
+        $this->assertTrue( $fileExists == true );
+    }
 
-        $this->partialMock(
-            \App\Commands\LaunchCommand::class,
-            function(MockInterface $mock){
-                $mock->shouldReceive('setupLaravel')->once()->andReturn('testse');
-            }
-        );
-    
-        // Works
-        $user = [];
-        dd( app( \App\Commands\LaunchCommand::class)->setupLaravel( $user,  new FlyIoService()) );
-        // Does not work at all because somehow setupLaravel is not getting mocked through artisan()!
-        // Plus setupLaravel is actually private, so I cant mock it
-        $this->artisan( 'launch' )
-        ->expectsQuestion( $this::ASK_CHOOSE_APP_NAME_OR_BLANK, 'test' )
-        ->expectsQuestion( 'Select additional processes to run (comma-separated)', '' );
+    /** CLEAN UP */
+    $this->deleteConfigFilesDir();
 
-})->todo();
 
+});

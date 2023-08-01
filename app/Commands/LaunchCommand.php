@@ -218,7 +218,7 @@ class LaunchCommand extends Command
 
     private function copyFiles()
     {
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly")
+        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ ./")
                ->throw();
 
         Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore")
