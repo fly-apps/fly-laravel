@@ -1,0 +1,290 @@
+[
+    {
+        "Code": "ams",
+        "Name": "Amsterdam, Netherlands",
+        "Latitude": 52.374344,
+        "Longitude": 4.895439,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "arn",
+        "Name": "Stockholm, Sweden",
+        "Latitude": 59.6512,
+        "Longitude": 17.9178,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "atl",
+        "Name": "Atlanta, Georgia (US)",
+        "Latitude": 33.6407,
+        "Longitude": -84.4277,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "bog",
+        "Name": "Bogotá, Colombia",
+        "Latitude": 4.70159,
+        "Longitude": -74.1469,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "bom",
+        "Name": "Mumbai, India",
+        "Latitude": 19.097403,
+        "Longitude": 72.874245,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": true
+    },
+    {
+        "Code": "bos",
+        "Name": "Boston, Massachusetts (US)",
+        "Latitude": 42.366978,
+        "Longitude": -71.02236,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "cdg",
+        "Name": "Paris, France",
+        "Latitude": 48.860874,
+        "Longitude": 2.353477,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "den",
+        "Name": "Denver, Colorado (US)",
+        "Latitude": 39.7392,
+        "Longitude": -104.9847,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "dfw",
+        "Name": "Dallas, Texas (US)",
+        "Latitude": 32.778286,
+        "Longitude": -96.7984,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "ewr",
+        "Name": "Secaucus, NJ (US)",
+        "Latitude": 40.789543,
+        "Longitude": -74.05653,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "eze",
+        "Name": "Ezeiza, Argentina",
+        "Latitude": -34.8222,
+        "Longitude": -58.5358,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "fra",
+        "Name": "Frankfurt, Germany",
+        "Latitude": 50.1167,
+        "Longitude": 8.6833,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": true
+    },
+    {
+        "Code": "gdl",
+        "Name": "Guadalajara, Mexico",
+        "Latitude": 20.5217,
+        "Longitude": -103.3109,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "gig",
+        "Name": "Rio de Janeiro, Brazil",
+        "Latitude": -22.8099,
+        "Longitude": -43.2505,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "gru",
+        "Name": "Sao Paulo, Brazil",
+        "Latitude": -23.549664,
+        "Longitude": -46.65435,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "hkg",
+        "Name": "Hong Kong, Hong Kong",
+        "Latitude": 22.25097,
+        "Longitude": 114.203224,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "iad",
+        "Name": "Ashburn, Virginia (US)",
+        "Latitude": 39.02214,
+        "Longitude": -77.462555,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "jnb",
+        "Name": "Johannesburg, South Africa",
+        "Latitude": -26.13629,
+        "Longitude": 28.20298,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "lax",
+        "Name": "Los Angeles, California (US)",
+        "Latitude": 33.9416,
+        "Longitude": -118.4085,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "lhr",
+        "Name": "London, United Kingdom",
+        "Latitude": 51.516434,
+        "Longitude": -0.125656,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "maa",
+        "Name": "Chennai (Madras), India",
+        "Latitude": 13.064429,
+        "Longitude": 80.25307,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": true
+    },
+    {
+        "Code": "mad",
+        "Name": "Madrid, Spain",
+        "Latitude": 40.4381,
+        "Longitude": -3.82,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "mia",
+        "Name": "Miami, Florida (US)",
+        "Latitude": 25.7877,
+        "Longitude": -80.2241,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "nrt",
+        "Name": "Tokyo, Japan",
+        "Latitude": 35.62161,
+        "Longitude": 139.74185,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "ord",
+        "Name": "Chicago, Illinois (US)",
+        "Latitude": 41.891544,
+        "Longitude": -87.63039,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "otp",
+        "Name": "Bucharest, Romania",
+        "Latitude": 44.4325,
+        "Longitude": 26.1039,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "phx",
+        "Name": "Phoenix, Arizona (US)",
+        "Latitude": 33.416084,
+        "Longitude": -112.00948,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "qro",
+        "Name": "Querétaro, Mexico",
+        "Latitude": 20.62,
+        "Longitude": -100.1863,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "scl",
+        "Name": "Santiago, Chile",
+        "Latitude": -33.36572,
+        "Longitude": -70.64292,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "sea",
+        "Name": "Seattle, Washington (US)",
+        "Latitude": 47.6097,
+        "Longitude": -122.3331,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "sin",
+        "Name": "Singapore, Singapore",
+        "Latitude": 1.3,
+        "Longitude": 103.8,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "sjc",
+        "Name": "San Jose, California (US)",
+        "Latitude": 37.3516,
+        "Longitude": -121.89674,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "syd",
+        "Name": "Sydney, Australia",
+        "Latitude": -33.86603,
+        "Longitude": 151.20692,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "waw",
+        "Name": "Warsaw, Poland",
+        "Latitude": 52.1657,
+        "Longitude": 20.9671,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "yul",
+        "Name": "Montreal, Canada",
+        "Latitude": 45.48647,
+        "Longitude": -73.75549,
+        "GatewayAvailable": false,
+        "RequiresPaidPlan": false
+    },
+    {
+        "Code": "kat",
+        "Name": "Toronto, Canada",
+        "Latitude": 43.64463,
+        "Longitude": -79.38423,
+        "GatewayAvailable": true,
+        "RequiresPaidPlan": false
+    }
+]

@@ -35,7 +35,7 @@ class LaunchCommand extends Command
      * @return mixed
      */
     public function handle(FlyIoService $flyIoService)
-    {
+    { 
         try
         {
             // First, check if a fly.toml is already present. If so, suggest to use the deployCommand instead.
@@ -46,7 +46,7 @@ class LaunchCommand extends Command
                 $this->line("An existing fly.toml file was found with app name '$foundAppName'");
                 if ($this->confirm("Do you want to run the deploy command instead?"))
                 {
-                    $this->call(DeployCommand::class);
+                    return $this->call(DeployCommand::class);
                 } else return CommandAlias::SUCCESS;
             }
 
@@ -108,6 +108,7 @@ class LaunchCommand extends Command
             ->throw()
             ->collect("data.organizations.nodes")
             ->toArray();
+            
         $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
 
         $regionsJson = $regionsProcess->wait()
@@ -217,7 +218,7 @@ class LaunchCommand extends Command
 
     private function copyFiles()
     {
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ .fly")
+        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ ./")
                ->throw();
 
         Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore")
