@@ -10,7 +10,15 @@ These commands will help you set up apps on Fly.io. **Remember that running thes
 
 ## Installation 
 
-Run `composer require fly-apps/fly-laravel` to install the latest version.
+Run `composer require fly-apps/fly-laravel` to install the latest version. 
+
+By default, commands are invoked using the `vendor/bin/fly-laravel` script. To avoid have to type all that for ecery command, you may configure a shell alias: 
+
+```shell
+alias fly-laravel='vendor/bin/fly-laravel'
+```
+
+To make sure this is always available, you may add this to your shell configuration file in your home directory, such as `~/.zshrc` or `~/.bashrc`, and then restart your shell.
 
 ## Usage 
 
@@ -57,7 +65,7 @@ Run `fly-laravel launch:mysql` to create a new MySQL application. You will be ab
 - **Volume Name**: For data persistence, a volume will be needed for database applications. If there's a volume with this name available, we'll use that. If no volume with this name can be found, a 1GB volume will be created on deploy. More about volumes here: [Volume Documentation](https://fly.io/docs/reference/volumes/). 
 
 Some notes when launching a MySQL database: 
-- During the launch, some Laravel environment variables will be updated in its `fly.toml` configuration. Redeploying the Laravel app will be necessary to reflect these changes.
+- During the launch, some environment variables will be updated in the `fly.toml` configuration of the Laravel app. Redeploying the Laravel app will be necessary to reflect these changes.
 - The `DB_CONNECTION` env var in `fly.toml` will be set to 'mysql'
 - On deploy, a small scale machine will be provisioned with a 1x shared CPU and 256Mb of memory. Consider scaling up the database for better performance.
 - By default, the `innodb buffer pool size` will be set to 64MB. Consider optimizing this based on your performance requirements. You can find this in `.fly/mysql/fly.toml`, in the `[processes]` section.

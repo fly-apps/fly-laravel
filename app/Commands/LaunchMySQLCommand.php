@@ -49,7 +49,7 @@ class LaunchMySQLCommand extends Command
 
         // finalize
         $this->info("MySQL app '" . $userInput['app_name'] . "' is ready to go! Run 'fly-laravel deploy:mysql' to deploy it.");
-        $this->line("Also, don't forget to run the migrations in your Laravel app 😉");
+        $this->line("Also, don't forget to redeploy your laravel app and run the migrations 😉");
         return CommandAlias::SUCCESS;
     }
 

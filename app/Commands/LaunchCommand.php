@@ -8,6 +8,7 @@ use Exception;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\Exceptions\ProcessFailedException;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -35,7 +36,7 @@ class LaunchCommand extends Command
      * @return mixed
      */
     public function handle(FlyIoService $flyIoService)
-    { 
+    {
         try
         {
             // First, check if a fly.toml is already present. If so, suggest to use the deployCommand instead.
@@ -108,7 +109,7 @@ class LaunchCommand extends Command
             ->throw()
             ->collect("data.organizations.nodes")
             ->toArray();
-            
+
         $userInput['organization'] = $flyIoService->askOrganizationName($organizations, $this);
 
         $regionsJson = $regionsProcess->wait()
@@ -218,20 +219,30 @@ class LaunchCommand extends Command
 
     private function copyFiles()
     {
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.fly/ ./")
-               ->throw();
+        /**
+         * __DIR__      = app/commands folder (! this starts with phar://)
+         * getcwd()     = root of application where package is installed
+         * base_path()  = location of executable (! this starts with phar://)
+         *
+         * Because __DIR__ and base_path start with phar://, only getcwd() can be used reliably.
+         */
 
-        Process::run("cp -r " . __DIR__ . "/../../resources/templates/.dockerignore .dockerignore")
-               ->throw();
+        $templatesPath = getcwd() . '/vendor/fly-apps/fly-laravel/resources/templates';
 
-        // The dockerfile is hardcoded and copied over from resources/templates/Dockerfile
-        if (file_exists('Dockerfile'))
+        // copy .fly directory
+        File::copyDirectory($templatesPath . '/.fly',  getcwd() . '/.fly');
+
+        // copy .dockerignore
+        File::copy($templatesPath . '/.dockerignore', getcwd() . '/.dockerignore');
+
+        // copy Dockerfile
+        if (file_exists(getcwd() . '/Dockerfile'))
         {
             $this->line("Existing Dockerfile found, using that instead of the default Dockerfile.");
-        } else
+        }
+        else
         {
-            Process::run("cp " . __DIR__ . '/../../resources/templates/Dockerfile Dockerfile')
-                   ->throw();
+            File::copy($templatesPath . '/Dockerfile', getcwd() . '/Dockerfile');
         }
     }
 
