@@ -154,7 +154,7 @@ class LaunchMySQLCommand extends Command
         {
             //create random passwords and username
             $password = base64_encode(random_bytes(32));
-            $username = base64_encode(random_bytes(32));
+            $username = base64_encode(random_bytes(16)); // mysql username has a character limit of 32. Base64 encoding makes the string longer, so only use a random 16-character string here.
             $rootPassword = base64_encode(random_bytes(32));
         }
         catch (Exception $e)
