@@ -6,7 +6,9 @@ Fly-Laravel was created by Fly.io and is a quick way to get a Laravel app runnin
 
 Fly-Laravel assumes that you have flyctl installed, and that you have it connected to your [Fly.io](https://www.fly.io) account. If you need help with this, check out  https://fly.io/docs/speedrun/.
 
-These commands will help you set up apps on Fly.io. **Remember that running these apps will cost money!**
+These commands will help you set up apps on Fly.io. **Remember that running these apps can cost money!** 
+
+You can find more about Fly.io's free allowance and pricing [here](https://fly.io/docs/about/pricing/).
 
 ## Installation 
 
@@ -22,10 +24,15 @@ To make sure this is always available, you may add this to your shell configurat
 
 ## Usage 
 
-With this package, you can spin up Laravel, MySQL and/or Redis apps on Fly.io . There are two commands for every type of app: `launch` and `deploy`. 
+With this package, you can spin up Laravel, MySQL and/or Redis apps on Fly.io . There are two commands for every type of app: `launch` and `deploy`.
 
-- `Launch` will create a new application on Fly.io in the organization you choose. 
-- `Deploy` will (re)deploy the app. This will update the app you've already created with `launch`. 
+- `Launch` will create a new application on Fly.io in the organization you choose.
+- `Deploy` will (re)deploy the app. This will update the app you've already created with `launch`.
+
+### Prerequisites
+- You have an account on Fly.io 
+- You have created an organization on Fly.io
+- You have installed the flyctl agent.
 
 ### Laravel
 
