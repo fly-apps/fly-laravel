@@ -12,7 +12,6 @@ destination="/data"
 
 [env]
 MYSQL_DATABASE = "$DATABASE_NAME$"
-MYSQL_USER = "$USER_NAME$"
 
 # As of 04/25/2023:
 # MySQL 8.0.33 has a bug in it

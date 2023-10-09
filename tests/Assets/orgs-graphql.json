@@ -1,0 +1,16 @@
+{
+  "data": {
+      "currentUser":{"email":"test@test.com"},
+      "organizations":{
+          "nodes":[
+              {
+                  "id" : "testId",
+                  "slug" : "testSlug",
+                  "name" : "testName",
+                  "type" : "PERSONAL",
+                  "viewerRole" : "admin"
+              }
+          ]
+        }
+    }
+}

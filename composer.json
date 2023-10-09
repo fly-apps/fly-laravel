@@ -1,6 +1,6 @@
 {
     "name": "fly-apps/fly-laravel",
-    "description": "A cli tool for running Laravel apps on Fly.io",
+    "description": "A cli tool for launching and deploying Laravel apps on Fly.io",
     "keywords": ["framework", "laravel", "Fly.io", "console", "cli"],
     "homepage": "https://github.com/fly-apps/fly-laravel",
     "type": "project",
@@ -21,12 +21,12 @@
         "illuminate/http": "^10.0",
         "illuminate/log": "^10.0",
         "illuminate/view": "^10.0",
-        "laravel-zero/framework": "^10.0.2",
         "nunomaduro/laravel-console-menu": "^3.4",
         "nunomaduro/termwind": "^1.15.1",
         "yosymfony/toml": "^1.0"
     },
     "require-dev": {
+        "laravel-zero/framework": "^10.0.2",
         "laravel/pint": "^1.8",
         "mockery/mockery": "^1.5.1",
         "pestphp/pest": "^2.5"

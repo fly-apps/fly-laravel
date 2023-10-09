@@ -19,6 +19,8 @@ APP_ENV = "production"
 LOG_CHANNEL = "stderr"
 LOG_LEVEL = "info"
 LOG_STDERR_FORMATTER = "Monolog\\Formatter\\JsonFormatter"
+SESSION_DRIVER = "cookie"
+SESSION_SECURE_COOKIE = true
 
 [experimental]
 auto_rollback = true
