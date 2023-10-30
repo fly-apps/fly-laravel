@@ -28,11 +28,16 @@ class MountVolumeCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Mount a volume to the Laravel application ';
+    protected $description = 'Mount volume(s) to the Laravel application\'s storage folder based on the number of available machines for the Fly App.';
 
     /**
      * Execute the console command.
-     *
+     * 1. input() - Detect the number of machines per region, generate volume name from the app name
+     * 2. setUp() - Create volumes based on input, 
+     *            - Revise flyToml file to mount newly generated volume, 
+     *            - Setup backup script to re-init storage folder during initial mounting of volume
+     *            - Prompt deploy changes
+     * 
      * @return mixed
      */
     public function handle(FlyIoService $flyIoService)
@@ -50,7 +55,7 @@ class MountVolumeCommand extends Command
         }
 
         // finalize
-        $this->line( "Volumes don't automatically sync their data&mdash;remember to apply your own replication logic if you need consistent data across your Fly App's Volumes." );
+        $this->line( "Volumes don't automatically sync their data--remember to apply your own replication logic if you need consistent data across your Fly App's Volumes." );
         return CommandAlias::SUCCESS;
     }
 
@@ -66,34 +71,52 @@ class MountVolumeCommand extends Command
     }
 
     private function input(array &$userInput, FlyIoService $flyIoService)
-    {   
-        $this->task( 'Detect regional volumes to create.', function() use($flyIoService, &$userInput){
+    {
+        $this->task( 'Detecting regional volumes to create', function() use($flyIoService, &$userInput){
+            // The status command contains details of the app
             $statusJson = Process::run('fly status --json')->throw();
             $statusArr = json_decode($statusJson->output(), true);
-
-            $userInput['machinesCount'] = $this->getRegionalMachineCount( $statusArr );
-            $userInput['volumeName'] = (str_replace( '-', '_', $statusArr['Name'] )).'_storage_vol';
+        
+            // Where we can count machines per region
+            $userInput['machinesCount'] = $this->getMachineCountPerRegion( $statusArr );
+            $userInput['volumeName']    = (str_replace( '-', '_', $statusArr['Name'] )).'_storage_vol';
+        
+            // Get the number of existing volumes
+            $volJson = Process::run('fly volumes list --json')->throw();
+            $volArr = json_decode($volJson->output(), true);
+            $userInput['existingVols'] = $this->getExistingVolumesPerRegion( $volArr );
         });
-       
+
         return $userInput;
     }
-    
+
+    private function getExistingVolumesPerRegion( $volArr )
+    {
+        $arr = [];
+        foreach( $volArr as $vol ){
+            $region = $vol['region'];
+            if( !isset($arr[$region]) )
+                $arr[$region] = 0;
+            $arr[$region] += 1;
+        } 
+        return $arr;
+    }
+
     private function setUp( array $userInput, FlyIoService $flyIoService)
     {
         // Create volumes that can accommodate the number of machines
         $this->createVolumesPerMachine( $userInput );
 
         // Setup flytoml
-        $this->updateFlyTomlMount( $userInput, new TomlGenerator() );
+        $this->mountVolumeInFlyToml( $userInput, new TomlGenerator() );
 
         // Create storage folder back up & copy re-init template
-        Process::run( 'cp -r storage storage_' );
-        $this->copyFiles();
-       
+        $this->setUpReInitStorageFolder( );
+
         // Deploy changes or not
         if( $this->confirm('Do you wish to deploy and complete mounting the volumes to your Fly App?') ){
             $process = Process::timeout(600)
-            ->start('fly deploy', function (string $type, string $output) {
+            ->start('fly deploy --wait-timeout 400', function (string $type, string $output) {
                 echo $output;
             });
             $result = $process->wait()->throw();
@@ -105,7 +128,7 @@ class MountVolumeCommand extends Command
      * Helper functions starts below!
      */
 
-    private function getRegionalMachineCount( array $statusArr )
+    private function getMachineCountPerRegion( array $statusArr )
     {
         // Get count of each machine per region
         $machines = [];
@@ -122,20 +145,33 @@ class MountVolumeCommand extends Command
 
     private function createVolumesPerMachine( array $userInput )
     {
-        $this->task('Creating volumes per machine detected.', function() use($userInput) {
+        $this->task('Creating volumes per machine', function() use($userInput) {
             foreach( $userInput['machinesCount'] as $region=>$count ){
-                $this->line( 'Detected '.$count.' machines in the '.$region.' region. Creating Volumes with name '.$userInput['volumeName'.'.'] );
-                $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region;
-                $result = Process::run( $command )->throw();
-                $values = json_decode($result->output(), true);
+
+                $this->newLine(2);
+                $this->line( ' Detected '.$count.' machines in the '.$region.' region...' );
+               
+                if( isset($userInput['existingVols'][$region]) ){
+                    $this->line( ' Found '.$userInput['existingVols'][$region].' existing Volumes in the region...' );
+                    $count = $count-$userInput['existingVols'][$region];
+                }
+                
+
+                if( $count > 0 ){
+                    $this->line( ' Creating '.$count.' volumes named '. $userInput['volumeName'].' in the '.$region.' region...' );
+                    $this->newLine();
+                    $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region;
+                    $result = Process::run( $command )->throw();
+                    $values = json_decode($result->output(), true);
+                }
+
             }
         });
-        
     }
 
-    private function updateFlyTomlMount( array $userInput, TomlGenerator $generator )
+    private function mountVolumeInFlyToml( array $userInput, TomlGenerator $generator )
     {
-        $this->task('Updating Fly.toml to mount volume.', function() use( $userInput, $generator ){
+        $this->task('Updating fly.toml to mount volume', function() use( $userInput, $generator ){
             // Get current toml content
             $laravelTomlArray = Toml::parseFile('fly.toml');
 
@@ -145,12 +181,20 @@ class MountVolumeCommand extends Command
 
             // Re-Generate fly.toml with mount values
             $generator->generateToml($laravelTomlArray, 'fly.toml');
+
         });
     }
-   
+
+    private function setUpReInitStorageFolder()
+    {
+        // Setup reinit for storage folder
+        Process::run( 'cp -r storage storage_' );
+        $this->copyFiles();
+    }
+
     private function copyFiles()
     {
-        $this->task( 'Copying storage folder re-initialization script.', function(){
+        $this->task( 'Copying storage folder re-initialization script', function(){
             // The templates path
             $templatesPath = getcwd().'/vendor/fly-apps/fly-laravel/resources/templates';
 
