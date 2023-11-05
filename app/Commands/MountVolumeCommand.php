@@ -72,8 +72,11 @@ class MountVolumeCommand extends Command
 
     private function input(array &$userInput, FlyIoService $flyIoService)
     {
-        $this->task( 'Detecting regional volumes to create', function() use($flyIoService, &$userInput){
+        $this->task( 'Getting relevant app details', function() use($flyIoService, &$userInput){
+            
             // The status command contains details of the app
+            $this->newLine(2);
+            $this->line( ' Detecting machines to mount Volume on...');
             $statusJson = Process::run('fly status --json')->throw();
             $statusArr = json_decode($statusJson->output(), true);
         
@@ -82,25 +85,22 @@ class MountVolumeCommand extends Command
             $userInput['volumeName']    = (str_replace( '-', '_', $statusArr['Name'] )).'_storage_vol';
         
             // Get the number of existing volumes
+            $this->line( ' Detecting existing Volumes...' );
             $volJson = Process::run('fly volumes list --json')->throw();
-            $volArr = json_decode($volJson->output(), true);
-            $userInput['existingVols'] = $this->getExistingVolumesPerRegion( $volArr );
+            $volArr  = json_decode($volJson->output(), true);
+            $volArr  = $this->getExistingVolumesPerRegion( $volArr ); 
+            $volOptions = $this->getVolumeOptions( $volArr );
+            if( count($volOptions) > 1 ){
+                $userInput['volumeSelected'] = $this->choice( 'Existing Volumes detected, would you like to use any of them?', $volOptions );
+                $userInput['volumes'] = $volArr;
+            }
+        
         });
 
         return $userInput;
     }
 
-    private function getExistingVolumesPerRegion( $volArr )
-    {
-        $arr = [];
-        foreach( $volArr as $vol ){
-            $region = $vol['region'];
-            if( !isset($arr[$region]) )
-                $arr[$region] = 0;
-            $arr[$region] += 1;
-        } 
-        return $arr;
-    }
+   
 
     private function setUp( array $userInput, FlyIoService $flyIoService)
     {
@@ -143,31 +143,75 @@ class MountVolumeCommand extends Command
         return $machines;
     }
 
+    private function getVolumeOptions( $volArr )
+    {
+        $strVol = [];
+        foreach( $volArr as $name=>$regions ){
+            $str = '['.$name.'] found in the regions: ';
+            foreach( $regions as $region=>$count ){
+                $str.= $region.':'. $count.', ';
+            }
+            $strVol[] = trim( $str, ', ' );
+        }
+        $strVol[] = 'No, create new Volume';
+        return $strVol;
+    }
+
+    private function getExistingVolumesPerRegion( $volArr )
+    {
+        $arr = [];
+        foreach( $volArr as $vol ){
+            $region = $vol['region'];
+            $name = $vol['name'];
+
+            if( !isset($arr[$name][$region]) )
+                $arr[$name][$region] = 0;
+
+            $arr[$name][$region] += 1;
+        } 
+        return $arr;
+    }
+
     private function createVolumesPerMachine( array $userInput )
     {
         $this->task('Creating volumes per machine', function() use($userInput) {
-            foreach( $userInput['machinesCount'] as $region=>$count ){
+            
+            $selectedVolume = '';
+            if( isset($userInput['volumeSelected']) ){
+                // Get name
+                $parts = explode( ']', $userInput['volumeSelected'] );      
+                if( count($parts) > 1 ){
+                    $selectedVolume = trim( $parts[0] ,'[' );
+                }   
+            }
 
-                $this->newLine(2);
-                $this->line( ' Detected '.$count.' machines in the '.$region.' region...' );
-               
-                if( isset($userInput['existingVols'][$region]) ){
-                    $this->line( ' Found '.$userInput['existingVols'][$region].' existing Volumes in the region...' );
-                    $count = $count-$userInput['existingVols'][$region];
-                }
-                
+            $this->newLine();
+            foreach( $userInput['machinesCount'] as $region=>$count ){
+            
+                $this->newLine();
+                $this->line( ' Detected '.$count.' machines in the '.$region.' region...' ); 
+                if( isset($userInput['volumes'][$selectedVolume][$region]) ){
+                    $existingVolCountInRegion = $userInput['volumes'][$selectedVolume][$region];
+                    $this->line( '  Found '.$existingVolCountInRegion.' existing Volumes in the region.' );
+                    $count = $count-$existingVolCountInRegion;
+                }               
 
                 if( $count > 0 ){
-                    $this->line( ' Creating '.$count.' volumes named '. $userInput['volumeName'].' in the '.$region.' region...' );
-                    $this->newLine();
+                    $this->line( '  Creating '.$count.' volumes named '. $userInput['volumeName'].' in the '.$region.' region.' );
                     $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region;
                     $result = Process::run( $command )->throw();
                     $values = json_decode($result->output(), true);
+                }else{
+                    $this->line( '  Enough Volumes already exist in region, no additional Volume created.' );
                 }
+
+                $this->newLine(2);
 
             }
         });
     }
+
+    
 
     private function mountVolumeInFlyToml( array $userInput, TomlGenerator $generator )
     {
