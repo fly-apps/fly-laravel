@@ -55,7 +55,7 @@ class MountVolumeCommand extends Command
         }
 
         // finalize
-        $this->line( "Volumes don't automatically sync their data--remember to apply your own replication logic if you need consistent data across your Fly App's Volumes." );
+        $this->line( "Volumes don't automatically sync their data, please remember to apply your own replication logic if you need consistent data across your Fly App's Volumes." );
         return CommandAlias::SUCCESS;
     }
 
@@ -74,38 +74,28 @@ class MountVolumeCommand extends Command
     {
         $this->task( 'Getting relevant app details', function() use($flyIoService, &$userInput){
             
-            // The status command contains details of the app
-            $this->newLine(2);
-            $this->line( ' Detecting machines to mount Volume on...');
-            $statusJson = Process::run('fly status --json')->throw();
-            $statusArr = json_decode($statusJson->output(), true);
-        
-            // Where we can count machines per region
-            $userInput['machinesCount'] = $this->getMachineCountPerRegion( $statusArr );
-            $userInput['volumeName']    = (str_replace( '-', '_', $statusArr['Name'] )).'_storage_vol';
-        
-            // Get the number of existing volumes
-            $this->line( ' Detecting existing Volumes...' );
-            $volJson = Process::run('fly volumes list --json')->throw();
-            $volArr  = json_decode($volJson->output(), true);
-            $volArr  = $this->getExistingVolumesPerRegion( $volArr ); 
-            $volOptions = $this->getVolumeOptions( $volArr );
-            if( count($volOptions) > 1 ){
-                $userInput['volumeSelected'] = $this->choice( 'Existing Volumes detected, would you like to use any of them?', $volOptions );
-                $userInput['volumes'] = $volArr;
-            }
-        
-        });
+            // Get app details from status command
+            $flyAppDetails = $flyIoService->getFlyAppStatus();
+            $userInput['appName'] = $flyAppDetails['Name'];
+          
+            // Get Machine details per region
+            $userInput['machinesCount'] = $this->getMachineCountPerRegion( $flyAppDetails );
+    
+            // Get the number of existing volumes 
+            $userInput['volumes'] = $this->getExistingVolumesPerRegion( $flyIoService->getFlyVolumesStatus() ); 
 
+            // Prompt User to select from existing Volumes or not
+            $userInput['volumeName'] = $this->getVolumeName( $userInput, $flyIoService );
+              
+        });
+       
         return $userInput;
     }
-
-   
 
     private function setUp( array $userInput, FlyIoService $flyIoService)
     {
         // Create volumes that can accommodate the number of machines
-        $this->createVolumesPerMachine( $userInput );
+        $this->createVolumesPerMachine( $userInput, $flyIoService );
 
         // Setup flytoml
         $this->mountVolumeInFlyToml( $userInput, new TomlGenerator() );
@@ -125,12 +115,15 @@ class MountVolumeCommand extends Command
     }
 
     /***
-     * Helper functions starts below!
+     *  INPUT Helper functions
      */
 
     private function getMachineCountPerRegion( array $statusArr )
     {
         // Get count of each machine per region
+        $this->newLine(2);
+        $this->line( ' Detecting machines to mount Volume on...');
+        
         $machines = [];
         foreach( $statusArr['Machines'] as $item ){
             if( $item['config']['env']['FLY_PROCESS_GROUP'] == 'app' ){
@@ -141,6 +134,61 @@ class MountVolumeCommand extends Command
             }
         }
         return $machines;
+    }
+
+    private function getExistingVolumesPerRegion( $volArr )
+    {
+        $this->line( ' Detecting existing Volumes...' );
+
+        $arr = [];
+        foreach( $volArr as $vol ){
+            $region = $vol['region'];
+            $name = $vol['name'];
+
+            if( !isset($arr[$name][$region]) )
+                $arr[$name][$region] = 0;
+
+            $arr[$name][$region] += 1;
+        } 
+        return $arr;
+    }
+
+    private function getVolumeName( array $userInput, FlyIoService $flyIoService )
+    {
+        // Get name from existing Volume
+        if( count($userInput['volumes']) > 0 ){
+            $selectedVolume = $this->choice( 
+                'Existing Volumes detected, would you like to use one of them?', 
+                $this->getVolumeOptions( $userInput['volumes'] )
+            );
+
+            if( isset($selectedVolume) ){
+                // Get selected option
+                $parts = explode( ']', $selectedVolume );    
+                
+                // Volume was selected 
+                if( count($parts) > 1 ){
+                    $selectedVolume = trim( $parts[0], '[' );
+                }else{
+                // Otherwise no Volume selected
+                    $selectedVolume = '';
+                }
+            }
+        }
+       
+        // Prompt for Volume name or generate one
+        if( empty($selectedVolume) ){
+            $selectedVolume = $this->ask( 'Choose a Volume name (leave blank to generate one)');
+            if( empty($selectedVolume) ){
+                $selectedVolume =  substr( 
+                    'vol_'.(str_replace( '-', '_', $userInput['appName'] )),
+                    0,30
+                );
+            }
+            $selectedVolume = $flyIoService->validateVolumeName( $selectedVolume );
+        }
+
+        return $selectedVolume;
     }
 
     private function getVolumeOptions( $volArr )
@@ -157,47 +205,43 @@ class MountVolumeCommand extends Command
         return $strVol;
     }
 
-    private function getExistingVolumesPerRegion( $volArr )
+    /**
+     * SETUP helper functions
+     */
+
+    private function copyFiles()
     {
-        $arr = [];
-        foreach( $volArr as $vol ){
-            $region = $vol['region'];
-            $name = $vol['name'];
+        $this->task( 'Copying storage folder re-initialization script', function(){
+            // The templates path
+            $templatesPath = getcwd().'/vendor/fly-apps/fly-laravel/resources/templates';
 
-            if( !isset($arr[$name][$region]) )
-                $arr[$name][$region] = 0;
-
-            $arr[$name][$region] += 1;
-        } 
-        return $arr;
+            // Copy over storage_vol/1_storage_init.sh
+            File::copy( $templatesPath.'/storage_vol/1_storage_init.sh', getcwd() . '/.fly/scripts/1_storage_init.sh' );
+        });       
     }
-
-    private function createVolumesPerMachine( array $userInput )
+   
+    private function createVolumesPerMachine( array $userInput, FlyIoService $flyIoService )
     {
-        $this->task('Creating volumes per machine', function() use($userInput) {
+        $this->task('Creating volumes per machine', function() use($userInput,$flyIoService) {
             
-            $selectedVolume = '';
-            if( isset($userInput['volumeSelected']) ){
-                // Get name
-                $parts = explode( ']', $userInput['volumeSelected'] );      
-                if( count($parts) > 1 ){
-                    $selectedVolume = trim( $parts[0] ,'[' );
-                }   
-            }
+            $volumeName = $userInput['volumeName'];
 
+            // Get the selected Volume from user selection
             $this->newLine();
             foreach( $userInput['machinesCount'] as $region=>$count ){
             
                 $this->newLine();
-                $this->line( ' Detected '.$count.' machines in the '.$region.' region...' ); 
-                if( isset($userInput['volumes'][$selectedVolume][$region]) ){
-                    $existingVolCountInRegion = $userInput['volumes'][$selectedVolume][$region];
+                $this->line( ' Detected '.$count.' machines in the '.$region.' region...' );
+                
+                if( isset($userInput['volumes'][$volumeName][$region]) ){
+                
+                    $existingVolCountInRegion = $userInput['volumes'][$volumeName][$region];
                     $this->line( '  Found '.$existingVolCountInRegion.' existing Volumes in the region.' );
                     $count = $count-$existingVolCountInRegion;
                 }               
 
                 if( $count > 0 ){
-                    $this->line( '  Creating '.$count.' volumes named '. $userInput['volumeName'].' in the '.$region.' region.' );
+                    $this->line( '  Creating '.$count.' volumes named '. $volumeName.' in the '.$region.' region.' );
                     $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region;
                     $result = Process::run( $command )->throw();
                     $values = json_decode($result->output(), true);
@@ -210,8 +254,6 @@ class MountVolumeCommand extends Command
             }
         });
     }
-
-    
 
     private function mountVolumeInFlyToml( array $userInput, TomlGenerator $generator )
     {
@@ -234,17 +276,6 @@ class MountVolumeCommand extends Command
         // Setup reinit for storage folder
         Process::run( 'cp -r storage storage_' );
         $this->copyFiles();
-    }
-
-    private function copyFiles()
-    {
-        $this->task( 'Copying storage folder re-initialization script', function(){
-            // The templates path
-            $templatesPath = getcwd().'/vendor/fly-apps/fly-laravel/resources/templates';
-
-            // Copy over storage_vol/1_storage_init.sh
-            File::copy( $templatesPath.'/storage_vol/1_storage_init.sh', getcwd() . '/.fly/scripts/1_storage_init.sh' );
-        });       
     }
 
 }
