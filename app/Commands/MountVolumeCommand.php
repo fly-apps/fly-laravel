@@ -242,7 +242,7 @@ class MountVolumeCommand extends Command
 
                 if( $count > 0 ){
                     $this->line( '  Creating '.$count.' volumes named '. $volumeName.' in the '.$region.' region.' );
-                    $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region;
+                    $command = 'fly volumes create '. $userInput['volumeName'] .' --count '.$count.' --region '.$region.' --yes';
                     $result = Process::run( $command )->throw();
                     $values = json_decode($result->output(), true);
                 }else{
