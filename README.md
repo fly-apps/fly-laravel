@@ -102,6 +102,14 @@ Some notes when launching a Redis application:
 
 Run `fly-laravel deploy:redis` to deploy the Redis application. After the deployment we'll run a quick check of the machine resources, and show a warning if the memory is smaller than 1GB.
 
+### Volume
+
+#### Mount
+
+Run `fly-laravel mount:volume` to mount Volume to your Laravel Fly app's storage directory and persist the files saved here! The command will create the necessary number of Volume(s) in the proper regions, matching the number of machines per region in your Fly app. It will then update your `fly.toml` file's mount section to use the Volume(s)' name, and, finally create a script necessary to [complete set up](https://fly.io/docs/laravel/the-basics/laravel-volume-storage/#:~:text=Laravel%E2%80%99s%20default%20configuration.-,To%20fix,-the%20little%20storage) of the storage folder for mounting.
+
+After set up, your app will be ready to deploy with changes to mount the created Volume(s)! This is why there is a last prompt from the command asking whether to deploy the changes or not. You can confirm--this will deploy your changes, or decline--your application will be ready to mount the Volume(s) when you deploy manually.
+
 ## Further Reading
 For more information about fly.io, check out the [Fly.io Docs](https://fly.io/docs/).
 

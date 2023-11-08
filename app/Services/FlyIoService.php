@@ -76,6 +76,15 @@ class FlyIoService
         return $appName;
     }
 
+    public function validateVolumeName($volName): string
+    {
+        if (!preg_match("/^[a-z0-9_]+$/", $volName) || strlen($volName)>30 )
+        {
+            throw new ProcessFailedException(Process::result("", "Volume names are only allowed to contain lowercase, numbers and underscores, with a maximum of 30 characters.", -1));
+        }
+        return $volName;
+    }
+
     public function createApp($appName, $organizationName): string
     {
         $result = Process::run("flyctl apps create -o $organizationName --machines $appName")
@@ -117,6 +126,18 @@ class FlyIoService
         if (!file_exists('fly.toml')) return '';
         $tomlArray = Toml::parseFile('fly.toml');
         return array_key_exists('app', $tomlArray) ? $tomlArray['app'] : '';
+    }
+
+    public function getFlyAppStatus( ): array 
+    {
+        $result = Process::run('fly status --json')->throw();
+        return json_decode($result->output(), true);
+    }
+
+    public function getFlyVolumesStatus(): array 
+    {
+        $result = Process::run('fly volumes list --json')->throw();
+        return json_decode($result->output(), true);
     }
 
     public function getLaravelOrganization(): string
